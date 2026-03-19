@@ -92,36 +92,44 @@ with aba1:
     # -------------------------
     # CRIAR UNIDADE
     # -------------------------
+    # Garante que a chave exista para não dar erro de renderização
     if "input_create_unidade" not in st.session_state:
         st.session_state["input_create_unidade"] = ""
     
-    # Usamos o value vindo do session_state
-    nome_unidade = st.text_input("Nome da unidade", key="input_create_unidade")
+    # O widget usa o session_state diretamente
+    st.text_input("Nome da unidade", key="input_create_unidade")
+    
+    # Capturamos o valor ATUAL do session_state em uma variável local
+    valor_para_inserir = st.session_state["input_create_unidade"].strip()
     
     if st.button("Criar Unidade", key="btn_create_unidade"):
-        if not nome_unidade:
+        if not valor_para_inserir:
             st.warning("Digite o nome da unidade")
         else:
-            # Verifica se existe
-            existe = [u for u in unidades_data if u["nome"].lower() == nome_unidade.lower()]
-    
+            # Verifica duplicata localmente para poupar o banco
+            existe = [u for u in unidades_data if u["nome"].lower() == valor_para_inserir.lower()]
+            
             if existe:
-                st.warning("Unidade já existe")
+                st.warning(f"A unidade '{valor_para_inserir}' já está cadastrada.")
             else:
-                # 1. Faz o insert primeiro (com o valor que está na variável)
-                supabase.table("unidades").insert({
-                    "nome": nome_unidade
-                }).execute()
+                try:
+                    # Inserção usando a variável local (garante que não vá vazio)
+                    supabase.table("unidades").insert({
+                        "nome": valor_para_inserir
+                    }).execute()
     
-                # 2. Mostra o sucesso
-                st.success(f"Unidade '{nome_unidade}' criada!")
-                
-                # 3. Limpa o valor no session_state ANTES do rerun
-                st.session_state["input_create_unidade"] = ""
-                
-                # 4. Limpa cache e recarrega
-                st.cache_data.clear()
-                st.rerun()
+                    st.success(f"✅ Unidade '{valor_para_inserir}' criada com sucesso!")
+                    
+                    # SÓ AGORA limpamos o state para o próximo uso
+                    st.session_state["input_create_unidade"] = ""
+                    
+                    # Limpa cache e recarrega para atualizar a lista abaixo
+                    st.cache_data.clear()
+                    st.rerun()
+                    
+                except Exception as e:
+                    st.error("Erro técnico ao salvar no Supabase:")
+                    st.code(e) # Isso vai mostrar o erro real do banco na tela (ex: erro de permissão ou constraint)
 
     # -------------------------
     # BUSCA (Agora filtrando os dados cacheados)
