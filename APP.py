@@ -445,11 +445,11 @@ with aba3:
 with aba4:
     st.header("📋 Controle de materiais")
 
-    # USANDO CACHE PARA VELOCIDADE MÁXIMA
+    # 1. BUSCA DE DADOS (Cache)
     unidades = get_unidades()
-    materiais_db = get_materiais() # Supondo que você criou essa função cacheada
+    materiais_db = get_materiais()
     ambientes_all = get_ambientes()
-    itens_all = get_itens() # Crie uma função get_itens() com @st.cache_data
+    itens_all = get_itens()
 
     # =========================
     # ÁREA DE CADASTRO
@@ -462,7 +462,6 @@ with aba4:
     )
 
     if unidade_sel:
-        # Filtra ambientes da unidade em memória
         ambientes_f = [a for a in ambientes_all if a["unidade_id"] == unidade_sel["id"]]
         
         ambiente_sel = st.selectbox(
@@ -482,10 +481,7 @@ with aba4:
                 novo_material = st.text_input("Nome do novo material", key="novo_mat_item")
 
             patrimonio = st.text_input("Patrimônio", key="patrimonio_item")
-            
-            # --- NOVO CAMPO: OBSERVAÇÃO ---
-            obs_item = st.text_area("Observações (Ex: Marca, cor, defeitos)", key="obs_item")
-
+            obs_item = st.text_area("Observações", key="obs_item")
             status = st.selectbox(
                 "Status", ["satisfatorio", "trocar_nao_urgente", "trocar_urgente"],
                 index=0, key="status_item"
@@ -493,6 +489,7 @@ with aba4:
 
             if st.button("Salvar Item", key="btn_salvar_item"):
                 material_id = None
+                # Lógica de novo material
                 if material_sel["id"] == "outro":
                     if not novo_material:
                         st.warning("Digite o nome do material")
@@ -508,19 +505,29 @@ with aba4:
                         "material_id": material_id,
                         "patrimonio": patrimonio,
                         "status": status,
-                        "observacao": obs_item # SALVANDO OBSERVAÇÃO
+                        "observacao": obs_item
                     }).execute()
 
-                    st.success("Item cadastrado!")
-                    st.cache_data.clear() # Limpa tudo para atualizar a lista
-                    st.rerun()
+                    st.success("Item cadastrado com sucesso!")
+                    
+                    # --- LÓGICA PARA LIMPAR O FORMULÁRIO ---
+                    chaves_para_limpar = [
+                        "item_unidade", "item_ambiente", "item_material", 
+                        "novo_mat_item", "patrimonio_item", "obs_item", "status_item"
+                    ]
+                    for chave in chaves_para_limpar:
+                        if chave in st.session_state:
+                            del st.session_state[chave]
+                    
+                    st.cache_data.clear() # Limpa cache para atualizar a lista abaixo
+                    st.rerun() # Recarrega a página com o form vazio
     else:
         st.info("Selecione uma unidade acima para realizar um novo cadastro.")
 
     st.markdown("---")
     st.subheader("🔎 Consulta e Auditoria")
     
-    # Filtros de consulta (mantidos como você fez)
+    # Filtros de consulta
     col1, col2, col3 = st.columns(3)
     with col1:
         f_unidade = st.selectbox("Filtrar Unidade", ["Todas"] + [u["nome"] for u in unidades], key="f_uni_tree")
@@ -529,12 +536,12 @@ with aba4:
     with col3:
         f_status = st.selectbox("Status", ["Todos", "satisfatorio", "trocar_nao_urgente", "trocar_urgente"], key="f_sta_tree")
 
-    # Mapeamento para exibição rápida
+    # Mapeamentos para exibição
     dict_amb = {a["id"]: a for a in ambientes_all}
     dict_mat = {m["id"]: m for m in materiais_db}
     dict_uni = {u["id"]: u for u in unidades}
 
-    # Organização da estrutura (Hierarquia)
+    # Organização da estrutura
     estrutura = {}
     for item in itens_all:
         amb = dict_amb.get(item["ambiente_id"], {})
@@ -549,20 +556,20 @@ with aba4:
         estrutura.setdefault(u_nome, {}).setdefault(a_nome, []).append({**item, "mat_nome": mat.get("nome")})
 
     # =========================
-    # EXIBIÇÃO HIERÁRQUICA (CORRIGIDA)
+    # EXIBIÇÃO HIERÁRQUICA (UNIDADE > AMBIENTE > ITEM)
     # =========================
     if not estrutura:
         st.info("Nenhum item encontrado")
     else:
-        # 1. Primeiro Nível: UNIDADES
         for unidade, ambientes_dict in estrutura.items():
-            with st.expander(f"🏥 {unidade}", expanded=False): # Começa fechado para organizar
+            # Nível 1: Unidade
+            with st.expander(f"🏥 {unidade}", expanded=False):
                 
-                # 2. Segundo Nível: AMBIENTES
                 for ambiente, itens_lista in ambientes_dict.items():
+                    # Nível 2: Ambiente (Dentro da Unidade)
                     with st.expander(f"📍 {ambiente}", expanded=False):
                         
-                        # 3. Terceiro Nível: ITENS
+                        # Nível 3: Itens (Dentro do Ambiente)
                         for i in itens_lista:
                             col_txt, col_edit, col_del, col_aud = st.columns([5,1,1,1])
                             
@@ -575,7 +582,7 @@ with aba4:
                                 if st.button("✏️", key=f"ed_{i['id']}"):
                                     st.session_state["edit_item_id"] = i["id"]
                             
-                            with col_del: # Adicionei o botão de deletar que faltava na lógica anterior
+                            with col_del:
                                 if st.button("🗑️", key=f"del_item_{i['id']}"):
                                     st.session_state["confirm_delete_item_id"] = i["id"]
 
