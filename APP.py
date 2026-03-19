@@ -616,23 +616,55 @@ with aba4:
                                         del st.session_state["view_audit_id"]
                                         st.rerun()
 
-                            # 2. EDIÇÃO
+                            # --- 2. EDIÇÃO (Versão com Histórico de Observações) ---
                             if st.session_state.get("edit_item_id") == i["id"]:
                                 with st.container(border=True):
                                     st.markdown("### ✏️ Editar")
                                     n_pat = st.text_input("Patrimônio", value=i["patrimonio"], key=f"inp_pat_{i['id']}")
-                                    n_obs = st.text_input("Observação", value=i.get("observacao", ""), key=f"inp_obs_{i['id']}")
+                                    # Troquei para text_area para facilitar a escrita de notas longas
+                                    n_obs = st.text_area("Observação", value=i.get("observacao", "") or "", key=f"inp_obs_{i['id']}")
+                                    
                                     st_opts = ["satisfatorio", "trocar_nao_urgente", "trocar_urgente"]
                                     n_sta = st.selectbox("Status", st_opts, index=st_opts.index(i["status"]) if i["status"] in st_opts else 0, key=f"inp_sta_{i['id']}")
                                     
                                     c1, c2 = st.columns(2)
                                     if c1.button("Salvar", key=f"sv_{i['id']}"):
-                                        det = f"Editado: Status {i['status']} -> {n_sta}."
-                                        supabase.table("historico_alteracoes").insert({"item_id": i["id"], "usuario": "Admin", "detalhes": det}).execute()
-                                        supabase.table("itens_inventario").update({"patrimonio": n_pat, "status": n_sta, "observacao": n_obs}).eq("id", i["id"]).execute()
-                                        st.cache_data.clear()
-                                        del st.session_state["edit_item_id"]
-                                        st.rerun()
+                                        # Lógica para detectar o que mudou
+                                        mudancas = []
+                                        if n_sta != i["status"]:
+                                            mudancas.append(f"Status: {i['status']} ➔ {n_sta}")
+                                        if n_pat != i["patrimonio"]:
+                                            mudancas.append(f"Pat: {i['patrimonio']} ➔ {n_pat}")
+                                        
+                                        obs_atual = i.get("observacao") or ""
+                                        if n_obs != obs_atual:
+                                            mudancas.append(f"Obs: {n_obs if n_obs else '(vazia)'}")
+                            
+                                        # Só executa se houver algo na lista de mudanças
+                                        if mudancas:
+                                            detalhes_log = " | ".join(mudancas)
+                                            
+                                            # Grava no histórico
+                                            supabase.table("historico_alteracoes").insert({
+                                                "item_id": i["id"], 
+                                                "usuario": "Admin", 
+                                                "detalhes": detalhes_log
+                                            }).execute()
+                                            
+                                            # Atualiza o item
+                                            supabase.table("itens_inventario").update({
+                                                "patrimonio": n_pat, 
+                                                "status": n_sta, 
+                                                "observacao": n_obs
+                                            }).eq("id", i["id"]).execute()
+                                            
+                                            st.success("✅ Alterações salvas!")
+                                            st.cache_data.clear()
+                                            del st.session_state["edit_item_id"]
+                                            st.rerun()
+                                        else:
+                                            st.warning("Nenhuma alteração foi feita.")
+                            
                                     if c2.button("Cancelar", key=f"cn_{i['id']}"):
                                         del st.session_state["edit_item_id"]
                                         st.rerun()
