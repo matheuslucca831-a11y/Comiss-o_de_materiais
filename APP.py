@@ -1,9 +1,28 @@
+
+
+import streamlit as st
 from supabase import create_client
 
 url = "https://oudfbraxmwuskdnnlisf.supabase.co"
 key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im91ZGZicmF4bXd1c2tkbm5saXNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4Nzc5NzQsImV4cCI6MjA4OTQ1Mzk3NH0.QnL67maBxqsfgm4xHmLBYcqPbQ99swjHw3OzndSM9qA"
 
 supabase = create_client(url, key)
+
+st.title("Teste")
+
+try:
+    dados = supabase.table("ambientes").select("*").execute()
+    st.write(dados.data)
+except Exception as e:
+    st.write(e)
+
+
+
+
+
+
+
+
 
 import streamlit as st
 
