@@ -1,5 +1,5 @@
-
-
+import pandas as pd
+from io import BytesIO
 import streamlit as st
 from supabase import create_client
 
@@ -682,3 +682,60 @@ with aba4:
                                     if st.button("Desistir", key=f"n_del_{i['id']}"):
                                         del st.session_state["confirm_delete_item_id"]
                                         st.rerun()
+
+st.markdown("---")
+if st.button("📊 Exportar Relatório Completo (Excel)"):
+    # 1. Preparar os dados para o Excel
+    dados_excel = []
+    
+    # Usamos a 'estrutura' que você já criou no seu código para manter a hierarquia
+    for unidade, ambientes_dict in estrutura.items():
+        # Linha da Unidade
+        dados_excel.append({"Unidade/Ambiente/Item": f"🏥 UNIDADE: {unidade.upper()}", "Status": "", "Patrimônio": "", "Observação": ""})
+        
+        for ambiente, itens_lista in ambientes_dict.items():
+            # Linha do Ambiente
+            dados_excel.append({"Unidade/Ambiente/Item": f"  📍 {ambiente}", "Status": "", "Patrimônio": "", "Observação": ""})
+            
+            for i in itens_lista:
+                # Linha do Item
+                dados_excel.append({
+                    "Unidade/Ambiente/Item": f"      - {i['mat_nome']}",
+                    "Status": i['status'],
+                    "Patrimônio": i['patrimonio'],
+                    "Observação": i.get('observacao', '')
+                })
+    
+    df = pd.DataFrame(dados_excel)
+
+    # 2. Criar o arquivo Excel em memória com formatação
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='Inventario')
+        
+        workbook  = writer.book
+        worksheet = writer.sheets['Inventario']
+
+        # Formatos
+        fmt_unidade = workbook.add_format({'bold': True, 'bg_color': '#D7E4BC', 'border': 1})
+        fmt_ambiente = workbook.add_format({'bold': True, 'bg_color': '#EAF1DD', 'italic': True})
+        fmt_header = workbook.add_format({'bold': True, 'bg_color': '#4F81BD', 'font_color': 'white'})
+
+        # Aplicar formatação visual nas linhas
+        for row_num, data in enumerate(dados_excel):
+            if "🏥 UNIDADE:" in data["Unidade/Ambiente/Item"]:
+                worksheet.set_row(row_num + 1, None, fmt_unidade)
+            elif "📍" in data["Unidade/Ambiente/Item"]:
+                worksheet.set_row(row_num + 1, None, fmt_ambiente)
+
+        # Ajustar largura das colunas
+        worksheet.set_column('A:A', 50)
+        worksheet.set_column('B:D', 20)
+        
+    # 3. Botão de Download
+    st.download_button(
+        label="📥 Clique aqui para baixar o arquivo",
+        data=output.getvalue(),
+        file_name=f"Relatorio_Inventario_{datetime.now().strftime('%d_%m_%Y')}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
