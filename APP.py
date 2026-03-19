@@ -42,23 +42,21 @@ aba1, aba2, aba3, aba4 = st.tabs([
 with aba1:
     st.header("🏥 Unidades")
 
+    # 1. CARREGAMENTO DOS DADOS VIA CACHE
     unidades_data = get_unidades()
 
     # -------------------------
     # CRIAR UNIDADE
     # -------------------------
-    nome_unidade = st.text_input("Nome da unidade")
+    nome_unidade = st.text_input("Nome da unidade", key="input_create_unidade")
 
-    if st.button("Criar Unidade"):
+    if st.button("Criar Unidade", key="btn_create_unidade"):
 
         if not nome_unidade:
             st.warning("Digite o nome da unidade")
-
         else:
-            existe = supabase.table("unidades") \
-                .select("*") \
-                .eq("nome", nome_unidade) \
-                .execute().data
+            # Verifica se existe usando os dados que já temos no cache (evita consulta ao banco)
+            existe = [u for u in unidades_data if u["nome"].lower() == nome_unidade.lower()]
 
             if existe:
                 st.warning("Unidade já existe")
@@ -68,22 +66,24 @@ with aba1:
                 }).execute()
 
                 st.success("Unidade criada!")
+                # Limpa o cache para que a nova unidade apareça na listagem
+                st.cache_data.clear()
                 st.rerun()
 
     # -------------------------
-    # BUSCA
+    # BUSCA (Agora filtrando os dados cacheados)
     # -------------------------
-    busca = st.text_input("🔎 Buscar unidade")
+    busca = st.text_input("🔎 Buscar unidade", key="input_busca_unidade")
 
-    unidades = supabase.table("unidades").select("*").execute().data
+    unidades_exibicao = unidades_data
 
     if busca:
-        unidades = [u for u in unidades if busca.lower() in u["nome"].lower()]
+        unidades_exibicao = [u for u in unidades_data if busca.lower() in u["nome"].lower()]
 
     # -------------------------
     # LISTAGEM COM AÇÕES
     # -------------------------
-    for u in unidades:
+    for u in unidades_exibicao:
         col1, col2, col3 = st.columns([6,1,1])
 
         # Nome
@@ -95,7 +95,7 @@ with aba1:
             if st.button("✏️", key=f"edit_{u['id']}"):
                 st.session_state["edit_unidade"] = u
 
-        # Deletar (AGORA COM CONFIRMAÇÃO)
+        # Deletar
         with col3:
             if st.button("🗑️", key=f"del_{u['id']}"):
                 st.session_state["confirm_delete_unidade"] = u
@@ -108,24 +108,22 @@ with aba1:
         unidade = st.session_state["confirm_delete_unidade"]
 
         st.warning(f"A unidade '{unidade['nome']}' pode ter ambientes vinculados.")
-
         st.write("Deseja excluir a unidade e TODOS os dados relacionados?")
 
         col1, col2 = st.columns(2)
 
         # CONFIRMAR
         with col1:
-            if st.button("Sim, excluir tudo"):
+            if st.button("Sim, excluir tudo", key="btn_confirm_del_final"):
 
                 try:
-                    # Buscar ambientes da unidade
+                    # Buscar ambientes da unidade (aqui usamos query direta para garantir cascata correta)
                     ambientes = supabase.table("ambientes") \
                         .select("*") \
                         .eq("unidade_id", unidade["id"]) \
                         .execute().data
 
                     for amb in ambientes:
-
                         # Deletar itens do ambiente
                         supabase.table("itens_inventario") \
                             .delete() \
@@ -145,6 +143,8 @@ with aba1:
                         .execute()
 
                     st.success("Unidade e todos os dados foram excluídos!")
+                    # Limpa o cache global após a exclusão
+                    st.cache_data.clear()
                     del st.session_state["confirm_delete_unidade"]
                     st.rerun()
 
@@ -154,7 +154,7 @@ with aba1:
 
         # CANCELAR
         with col2:
-            if st.button("Cancelar"):
+            if st.button("Cancelar", key="btn_cancel_del"):
                 del st.session_state["confirm_delete_unidade"]
                 st.rerun()
 
@@ -168,20 +168,21 @@ with aba1:
 
         novo_nome = st.text_input(
             "Novo nome",
-            value=unidade["nome"]
+            value=unidade["nome"],
+            key="input_edit_nome"
         )
 
-        if st.button("Salvar alteração"):
+        if st.button("Salvar alteração", key="btn_save_edit"):
             supabase.table("unidades") \
                 .update({"nome": novo_nome}) \
                 .eq("id", unidade["id"]) \
                 .execute()
 
             st.success("Atualizado!")
-            del st.session_state["edit_unidade"]
+            # Limpa o cache para atualizar o nome na lista
             st.cache_data.clear()
+            del st.session_state["edit_unidade"]
             st.rerun()
-
 with aba2:
     st.header("🏢 Ambientes")
 
