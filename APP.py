@@ -187,22 +187,25 @@ with aba2:
     st.header("🏢 Ambientes")
 
     # -------------------------
-    # BUSCAR UNIDADE
+    # BUSCAR UNIDADE (USANDO CACHE)
     # -------------------------
     busca_unidade = st.text_input("🔎 Buscar unidade", key="busca_unidade_amb")
 
-    unidades = supabase.table("unidades").select("*").execute().data
+    # Usando a função cacheadas em vez de query direta
+    unidades_data = get_unidades() 
 
+    unidades_filtradas = unidades_data
     if busca_unidade:
-        unidades = [u for u in unidades if busca_unidade.lower() in u["nome"].lower()]
+        unidades_filtradas = [u for u in unidades_data if busca_unidade.lower() in u["nome"].lower()]
 
-    if not unidades:
+    if not unidades_filtradas:
         st.warning("Nenhuma unidade encontrada")
     else:
         unidade_sel = st.selectbox(
             "Selecione a unidade",
-            unidades,
-            format_func=lambda x: x["nome"]
+            unidades_filtradas,
+            format_func=lambda x: x["nome"],
+            key="sb_unidade_amb"
         )
 
         # -------------------------
@@ -210,13 +213,11 @@ with aba2:
         # -------------------------
         st.subheader("➕ Novo Ambiente")
 
-        nome_ambiente = st.text_input("Nome do ambiente")
+        nome_ambiente = st.text_input("Nome do ambiente", key="input_nome_amb")
 
         if st.button("Criar Ambiente"):
-
             if not nome_ambiente:
                 st.warning("Digite o nome do ambiente")
-
             else:
                 supabase.table("ambientes").insert({
                     "nome": nome_ambiente,
@@ -224,34 +225,34 @@ with aba2:
                 }).execute()
 
                 st.success("Ambiente criado!")
+                # Limpa o cache para atualizar a lista de ambientes abaixo
+                st.cache_data.clear()
                 st.rerun()
 
         # -------------------------
-        # LISTAR AMBIENTES DA UNIDADE
+        # LISTAR AMBIENTES DA UNIDADE (USANDO CACHE)
         # -------------------------
         st.subheader("📋 Ambientes da unidade")
 
-        ambientes = supabase.table("ambientes") \
-            .select("*") \
-            .eq("unidade_id", unidade_sel["id"]) \
-            .execute().data
+        # Usando a função com cache
+        todos_ambientes = get_ambientes()
+        
+        # Filtramos em memória os ambientes que pertencem à unidade selecionada
+        ambientes_da_unidade = [a for a in todos_ambientes if a["unidade_id"] == unidade_sel["id"]]
 
-        if not ambientes:
+        if not ambientes_da_unidade:
             st.info("Nenhum ambiente cadastrado")
         else:
-            for a in ambientes:
+            for a in ambientes_da_unidade:
                 col1, col2, col3 = st.columns([6,1,1])
 
-                # Nome
                 with col1:
                     st.write(a["nome"])
 
-                # Editar
                 with col2:
                     if st.button("✏️", key=f"edit_amb_{a['id']}"):
                         st.session_state["edit_ambiente"] = a
 
-                # Deletar
                 with col3:
                     if st.button("🗑️", key=f"del_amb_{a['id']}"):
                         st.session_state["confirm_delete_ambiente"] = a
@@ -260,39 +261,30 @@ with aba2:
     # CONFIRMAR EXCLUSÃO
     # -------------------------
     if "confirm_delete_ambiente" in st.session_state:
-
         amb = st.session_state["confirm_delete_ambiente"]
-
         st.warning(f"O ambiente '{amb['nome']}' será excluído com todos os itens.")
 
         col1, col2 = st.columns(2)
 
         with col1:
-            if st.button("Sim, excluir"):
-
+            if st.button("Sim, excluir", key="btn_conf_del_amb"):
                 try:
                     # deletar itens
-                    supabase.table("itens_inventario") \
-                        .delete() \
-                        .eq("ambiente_id", amb["id"]) \
-                        .execute()
-
+                    supabase.table("itens_inventario").delete().eq("ambiente_id", amb["id"]).execute()
                     # deletar ambiente
-                    supabase.table("ambientes") \
-                        .delete() \
-                        .eq("id", amb["id"]) \
-                        .execute()
+                    supabase.table("ambientes").delete().eq("id", amb["id"]).execute()
 
                     st.success("Ambiente excluído!")
+                    # Limpa o cache após exclusão
+                    st.cache_data.clear()
                     del st.session_state["confirm_delete_ambiente"]
                     st.rerun()
 
                 except Exception as e:
-                    st.error("Erro:")
-                    st.write(e)
+                    st.error(f"Erro: {e}")
 
         with col2:
-            if st.button("Cancelar"):
+            if st.button("Cancelar", key="btn_canc_del_amb"):
                 del st.session_state["confirm_delete_ambiente"]
                 st.rerun()
 
@@ -300,20 +292,16 @@ with aba2:
     # EDITAR AMBIENTE
     # -------------------------
     if "edit_ambiente" in st.session_state:
-
         amb = st.session_state["edit_ambiente"]
-
         st.subheader("✏️ Editar Ambiente")
+        novo_nome = st.text_input("Novo nome", value=amb["nome"], key="input_edit_amb")
 
-        novo_nome = st.text_input("Novo nome", value=amb["nome"])
-
-        if st.button("Salvar alteração"):
-            supabase.table("ambientes") \
-                .update({"nome": novo_nome}) \
-                .eq("id", amb["id"]) \
-                .execute()
-
+        if st.button("Salvar alteração", key="btn_save_edit_amb"):
+            supabase.table("ambientes").update({"nome": novo_nome}).eq("id", amb["id"]).execute()
+            
             st.success("Atualizado!")
+            # Limpa o cache após edição
+            st.cache_data.clear()
             del st.session_state["edit_ambiente"]
             st.rerun()
 
