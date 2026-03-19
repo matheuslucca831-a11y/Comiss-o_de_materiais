@@ -78,7 +78,7 @@ aba1, aba2, aba3, aba4, aba5 = st.tabs([
     "Ambientes", 
     "Editar Materiais", 
     "Controle de Materiais",
-    "📊 Relatórios"
+    "Relatórios"
 ])
 
 
