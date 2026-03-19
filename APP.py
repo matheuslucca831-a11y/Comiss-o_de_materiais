@@ -498,18 +498,10 @@ with aba4:
                 index=0, key="status_item"
             )
             if st.button("Salvar Item", key="btn_salvar_item"):
-                material_id = None
-                if material_sel["id"] == "outro":
-                    if not novo_material:
-                        st.warning("Digite o nome do material")
-                    else:
-                        res_mat = supabase.table("materiais").insert({"nome": novo_material}).execute()
-                        material_id = res_mat.data[0]["id"]
-                else:
-                    material_id = material_sel["id"]
-
+                # ... (lógica do material_id que já fizemos) ...
+                
                 if material_id:
-                    # 1. Insere o item e pega o ID gerado (res.data[0])
+                    # 1. Salva o Item
                     res_item = supabase.table("itens_inventario").insert({
                         "ambiente_id": ambiente_sel["id"],
                         "material_id": material_id,
@@ -517,27 +509,19 @@ with aba4:
                         "status": status,
                         "observacao": obs_item
                     }).execute()
-                    
-                    # 2. Registra na AUDITORIA a criação
+            
+                    # 2. Registra na AUDITORIA (Criação)
                     if res_item.data:
-                        novo_id_item = res_item.data[0]["id"]
-                        detalhe_criacao = f"📦 Item cadastrado no ambiente: {ambiente_sel['nome']}. Status inicial: {status}"
+                        id_novo = res_item.data[0]["id"]
+                        agora_br = formato_br() # Pega a hora de Brasília
                         
                         supabase.table("historico_alteracoes").insert({
-                            "item_id": novo_id_item,
-                            "usuario": "Admin", # Aqui você pode usar st.session_state.usuario se tiver login
-                            "detalhes": detalhe_criacao
+                            "item_id": id_novo,
+                            "usuario": "Sistema/Admin", # Garanta que esse nome bate com a coluna 'usuario'
+                            "detalhes": f"📦 Cadastrado em {ambiente_sel['nome']} às {agora_br}. Status: {status}"
                         }).execute()
-
-                    st.success(f"Item {material_sel['nome']} cadastrado e registrado no histórico!")
-                    
-                    # Limpeza do formulário (como combinamos antes)
-                    chaves_para_limpar = ["item_unidade", "item_ambiente", "item_material", "novo_mat_item", "patrimonio_item", "obs_item"]
-                    for chave in chaves_para_limpar:
-                        if chave in st.session_state: del st.session_state[chave]
-                    
-                    st.cache_data.clear()
-                    st.rerun()
+            
+                    st.success("Cadastrado com sucesso!")
     else:
         st.info("Selecione uma unidade acima para realizar um novo cadastro.")
 
