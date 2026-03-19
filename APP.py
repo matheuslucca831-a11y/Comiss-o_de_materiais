@@ -584,7 +584,7 @@ with aba4:
                             if st.session_state.get("view_audit_id") == i["id"]:
                                 with st.container(border=True):
                                     st.info(f"Histórico: {i['mat_nome']}")
-                                    logs = supabase.table("historico_alteracoes").select("*").eq("item_id", i["id"]).order("created_at", desc=True).execute().data
+                                    logs = supabase.table("historico_alteracoes").select("*").eq("item_id", i["id"]).execute().data
                                     if logs:
                                         for l in logs:
                                             raw_date = l.get('created_at', '')
