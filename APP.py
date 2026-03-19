@@ -499,20 +499,24 @@ with aba4:
             )
 
             if st.button("Salvar Item", key="btn_salvar_item"):
-                # Inicializamos para evitar NameError
                 material_id = None 
                 
-                # Lógica para novo material ou existente
+                # 1. TRATAMENTO DO MATERIAL
                 if material_sel and material_sel["id"] == "outro":
                     if not novo_material:
-                        st.warning("Digite o nome do material")
+                        st.warning("⚠️ Digite o nome do novo material")
+                        st.stop() # Para a execução aqui se não tiver nome
                     else:
+                        # Insere o novo material
                         res_mat = supabase.table("materiais").insert({"nome": novo_material.strip()}).execute()
                         if res_mat.data:
                             material_id = res_mat.data[0]["id"]
+                            # IMPORTANTE: Limpa o cache para o novo material aparecer na próxima
+                            st.cache_data.clear() 
                 elif material_sel:
                     material_id = material_sel["id"]
 
+                # 2. INSERÇÃO DO ITEM (Só se tiver ID de material e ambiente)
                 if material_id and ambiente_sel:
                     try:
                         res_item = supabase.table("itens_inventario").insert({
@@ -520,34 +524,33 @@ with aba4:
                             "material_id": material_id,
                             "patrimonio": patrimonio,
                             "status": status,
-                            "observacao": obs_item  # Verifique se o nome no banco é exatamente este
+                            "observacao": obs_item
                         }).execute()
-                        
-                        # O restante do código de auditoria vem aqui...
-                        
+                
+                        # 3. AUDITORIA (Só executa se o insert do item deu certo)
+                        if res_item.data:
+                            id_novo = res_item.data[0]["id"]
+                            agora_br = (datetime.now() - timedelta(hours=3)).strftime('%d/%m/%Y %H:%M')
+                            
+                            supabase.table("historico_alteracoes").insert({
+                                "item_id": id_novo,
+                                "usuario": "Admin", 
+                                "detalhes": f"📦 Cadastrado em {ambiente_sel['nome']} às {agora_br}. Status: {status}"
+                            }).execute()
+                
+                            st.success("✅ Cadastrado com sucesso!")
+                            
+                            # Limpeza dos campos
+                            for key in ["item_unidade", "item_ambiente", "item_material", "novo_mat_item", "patrimonio_item", "obs_item"]:
+                                if key in st.session_state:
+                                    del st.session_state[key]
+                            
+                            st.rerun()
+
                     except Exception as e:
-                        st.error(f"Erro ao inserir no banco: {e}")
-            
-                    # 2. Registra na AUDITORIA (Criação) com Horário de Brasília
-                    if res_item.data:
-                        id_novo = res_item.data[0]["id"]
-                        agora_br = (datetime.now() - timedelta(hours=3)).strftime('%d/%m/%Y %H:%M')
-                        
-                        # Verifique se o nome da tabela e dos campos estão exatos
-                        supabase.table("historico_alteracoes").insert({
-                            "item_id": id_novo,
-                            "usuario": "Admin", 
-                            "detalhes": f"📦 Cadastrado em {ambiente_sel['nome']} às {agora_br}"
-                        }).execute()
-                    st.success("Cadastrado com sucesso!")
-                    
-                    # --- LIMPEZA DOS CAMPOS DO FORMULÁRIO ---
-                    for key in ["item_unidade", "item_ambiente", "item_material", "novo_mat_item", "patrimonio_item", "obs_item"]:
-                        if key in st.session_state:
-                            del st.session_state[key]
-                    
-                    st.cache_data.clear()
-                    st.rerun()
+                        st.error(f"❌ Erro ao salvar: {e}")
+                else:
+                    st.error("⚠️ Erro: Material ou Ambiente não identificado.")
     else:
         st.info("Selecione uma unidade acima para realizar um novo cadastro.")
 
