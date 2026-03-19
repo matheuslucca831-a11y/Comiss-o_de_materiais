@@ -8,6 +8,17 @@ key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im91
 
 supabase = create_client(url, key)
 
+from datetime import datetime, timedelta
+
+def formato_brasilia(data_iso):
+    if not data_iso:
+        return ""
+    # O Supabase envia algo como "2026-03-19T17:00:00+00:00"
+    # Removemos o fuso e convertemos para objeto datetime
+    dt_utc = datetime.fromisoformat(data_iso.replace('Z', '+00:00'))
+    # Subtrai 3 horas para Brasília
+    dt_br = dt_utc - timedelta(hours=3)
+    return dt_br.strftime('%d/%m/%Y %H:%M')
 
 # Função para definir o emoji de status
 def cor(s):
@@ -598,9 +609,8 @@ with aba4:
                                     if not logs: 
                                         st.write("Nenhuma alteração registrada.")
                                     for l in logs:
-                                        # Formata a data para ficar mais bonita
-                                        data_f = l['data_alteracao'].replace('T', ' ')[:16]
-                                        st.write(f"⏰ {data_f} | {l['detalhes']}")
+                                        data_formatada = formato_brasilia(l['data_alteracao'])
+                                        st.write(f"⏰ {data_formatada} | {l['detalhes']}")
                                     
                                     if st.button("Fechar Histórico", key=f"close_aud_{i['id']}"):
                                         del st.session_state["view_audit_id"]
