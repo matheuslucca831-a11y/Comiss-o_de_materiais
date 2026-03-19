@@ -720,35 +720,3 @@ else:
                                 st.rerun()
 
 
-if "edit_item" in st.session_state:
-
-    item = st.session_state["edit_item"]
-
-    st.subheader("✏️ Editar Item")
-
-    novo_patrimonio = st.text_input(
-        "Patrimônio",
-        value=item["patrimonio"],
-        key="edit_patrimonio"
-    )
-
-    novo_status = st.selectbox(
-        "Status",
-        ["satisfatorio", "trocar_nao_urgente", "trocar_urgente"],
-        index=["satisfatorio", "trocar_nao_urgente", "trocar_urgente"].index(item["status"]),
-        key="edit_status"
-    )
-
-    if st.button("Salvar alteração", key="salvar_item"):
-
-        supabase.table("itens_inventario") \
-            .update({
-                "patrimonio": novo_patrimonio,
-                "status": novo_status
-            }) \
-            .eq("id", item["id"]) \
-            .execute()
-
-        st.success("Item atualizado!")
-        del st.session_state["edit_item"]
-        st.rerun()
