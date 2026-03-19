@@ -430,79 +430,75 @@ with aba4:
     st.header("📋 Controle de materiais")
 
     # =========================
-    # CONTROLE DE RESET
+    # FUNÇÃO DE LIMPEZA (RESET)
     # =========================
-    if "reset_form" not in st.session_state:
-        st.session_state["reset_form"] = False
+    def limpar_campos():
+        # Lista de todas as chaves que você usou nos widgets
+        chaves = ["item_unidade", "item_ambiente", "item_material", "novo_mat_item", "patrimonio_item", "status_item"]
+        for chave in chaves:
+            if chave in st.session_state:
+                del st.session_state[chave]
 
     # =========================
     # CADASTRO DE ITEM
     # =========================
     st.subheader("➕ Cadastrar Item")
 
+    # Busca dados (Ideal seria colocar cache aqui se as tabelas forem grandes)
     unidades = supabase.table("unidades").select("*").execute().data
     materiais = supabase.table("materiais").select("*").execute().data
 
-    # =========================
     # UNIDADE
-    # =========================
     unidade_sel = st.selectbox(
         "Unidade",
         unidades,
         format_func=lambda x: x["nome"],
-        index=None if st.session_state["reset_form"] else 0,
-        placeholder="Selecione ou digite a unidade...",
+        index=None, # Força começar vazio
+        placeholder="Selecione a unidade...",
         key="item_unidade"
     )
 
-    if unidade_sel is None:
+    if not unidade_sel:
         st.info("Selecione uma unidade para continuar")
         st.stop()
 
-    # =========================
     # AMBIENTE
-    # =========================
-    ambientes = supabase.table("ambientes") \
-        .select("*") \
-        .eq("unidade_id", unidade_sel["id"]) \
-        .execute().data
+    ambientes = supabase.table("ambientes").select("*").eq("unidade_id", unidade_sel["id"]).execute().data
 
     ambiente_sel = st.selectbox(
         "Ambiente",
         ambientes,
         format_func=lambda x: x["nome"],
-        index=None if st.session_state["reset_form"] else 0,
+        index=None,
         placeholder="Selecione o ambiente...",
         key="item_ambiente"
     )
 
-    if ambiente_sel is None:
+    if not ambiente_sel:
         st.stop()
 
-    # =========================
     # MATERIAL
-    # =========================
     lista_materiais = materiais + [{"id": "outro", "nome": "Outro..."}]
 
     material_sel = st.selectbox(
         "Material",
         lista_materiais,
         format_func=lambda x: x["nome"],
-        index=None if st.session_state["reset_form"] else 0,
-        placeholder="Selecione ou digite o material...",
+        index=None,
+        placeholder="Selecione o material...",
         key="item_material"
     )
 
+    novo_material = None
     if material_sel and material_sel["id"] == "outro":
         novo_material = st.text_input("Nome do novo material", key="novo_mat_item")
-    else:
-        novo_material = None
 
     patrimonio = st.text_input("Patrimônio", key="patrimonio_item")
 
     status = st.selectbox(
         "Status",
         ["satisfatorio", "trocar_nao_urgente", "trocar_urgente"],
+        index=0,
         key="status_item"
     )
 
@@ -510,22 +506,19 @@ with aba4:
     # SALVAR
     # =========================
     if st.button("Salvar Item", key="btn_salvar_item"):
-
         if not material_sel:
             st.warning("Selecione um material")
             st.stop()
 
+        # Lógica de Inserção
+        material_id = None
         if material_sel["id"] == "outro":
             if not novo_material:
                 st.warning("Digite o nome do material")
                 st.stop()
-
-            mat = supabase.table("materiais").insert({
-                "nome": novo_material
-            }).execute().data
-
-            material_id = mat[0]["id"]
-
+            
+            res_mat = supabase.table("materiais").insert({"nome": novo_material}).execute()
+            material_id = res_mat.data[0]["id"]
         else:
             material_id = material_sel["id"]
 
@@ -536,11 +529,10 @@ with aba4:
             "status": status
         }).execute()
 
-        st.success("Item cadastrado!")
-
-        # 🔥 ATIVA RESET
-        st.session_state["reset_form"] = True
-
+        st.success("Item cadastrado com sucesso!")
+        
+        # 🔥 A MÁGICA: Limpa as chaves e recarrega
+        limpar_campos()
         st.rerun()
 
     # =========================
