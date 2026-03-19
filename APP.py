@@ -12,6 +12,56 @@ supabase = create_client(url, key)
 
 from datetime import datetime, timedelta
 
+
+import bcrypt
+
+def gerar_senha_inicial(senha_numerica):
+    # Transforma a senha em hash para salvar no banco
+    hash_gerado = bcrypt.hashpw(str(senha_numerica).encode('utf-8'), bcrypt.gensalt())
+    return hash_gerado.decode('utf-8')
+
+# Exemplo: Se sua matrícula for 12345 e senha 2026
+print(f"Senha Hash: {gerar_senha_inicial('2026')}")
+
+def tela_login():
+    if "usuario_logado" not in st.session_state:
+        st.session_state.usuario_logado = None
+        st.session_state.nome_admin = ""
+
+    if st.session_state.usuario_logado is None:
+        with st.columns([1,2,1])[1]: # Centraliza a tela de login
+            st.markdown("### 🏥 Controle de Materiais - Login")
+            with st.container(border=True):
+                # Usamos a matrícula como identificador
+                matricula = st.text_input("Matrícula (Usuário)")
+                
+                # Input de senha que aceita apenas números (ajuda na validação visual)
+                senha = st.text_input("Senha Numérica", type="password", help="Digite apenas números")
+                
+                if st.button("Acessar Sistema", use_container_width=True):
+                    if not matricula or not senha:
+                        st.warning("Preencha todos os campos.")
+                    elif not senha.isdigit():
+                        st.error("A senha deve conter apenas números!")
+                    else:
+                        # Busca pela matrícula no Supabase
+                        res = supabase.table("usuarios").select("*").eq("usuario", matricula).execute()
+                        
+                        if res.data:
+                            user_data = res.data[0]
+                            # Verifica se a senha bate com o hash do banco
+                            if verificar_hash(senha, user_data["senha_hash"]):
+                                st.session_state.usuario_logado = user_data["usuario"] # Salva a matrícula
+                                st.session_state.nome_admin = user_data["nome_exibicao"] # Salva o nome real
+                                st.success(f"Conectado como: {user_data['nome_exibicao']}")
+                                st.rerun()
+                            else:
+                                st.error("Senha incorreta.")
+                        else:
+                            st.error("Matrícula não cadastrada.")
+        st.stop()
+
+
 def limpar_input_unidade():
     st.session_state["input_create_unidade"] = ""
 
@@ -571,9 +621,9 @@ with aba4:
                             id_novo = res_item.data[0]["id"]
                             # Auditoria Inicial
                             supabase.table("historico_alteracoes").insert({
-                                "item_id": id_novo,
-                                "usuario": "Admin", 
-                                "detalhes": f"📦 Cadastrado em {ambiente_sel['nome']}. Status: {status}"
+                                "item_id": id_do_item,
+                                "usuario": st.session_state.nome_admin, # <--- Aqui entra o nome de quem logou
+                                "detalhes": f"Ação realizada por {st.session_state.nome_admin} em {datetime.now().strftime('%d/%m %H:%M')}"
                             }).execute()
                 
                             st.success("✅ Item cadastrado!")
