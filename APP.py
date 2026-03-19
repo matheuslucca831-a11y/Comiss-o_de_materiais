@@ -171,7 +171,7 @@ with aba2:
     # -------------------------
     # BUSCAR UNIDADE
     # -------------------------
-    busca_unidade = st.text_input("🔎 Buscar unidade")
+    busca_unidade = st.text_input("🔎 Buscar unidade", key="busca_unidade_amb")
 
     unidades = supabase.table("unidades").select("*").execute().data
 
