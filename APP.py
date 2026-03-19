@@ -427,37 +427,180 @@ with aba3:
                 st.rerun()
 
 with aba4:
-    st.header("📋 Cadastro de Item")
+    st.header("📋 Itens")
 
-    ambientes = supabase.table("ambientes").select("*").execute().data
+    # =========================
+    # CADASTRO DE ITEM
+    # =========================
+    st.subheader("➕ Cadastrar Item")
+
+    unidades = supabase.table("unidades").select("*").execute().data
     materiais = supabase.table("materiais").select("*").execute().data
+
+    # Selecionar unidade
+    unidade_sel = st.selectbox(
+        "Unidade",
+        unidades,
+        format_func=lambda x: x["nome"],
+        key="item_unidade"
+    )
+
+    # Buscar ambientes da unidade
+    ambientes = supabase.table("ambientes") \
+        .select("*") \
+        .eq("unidade_id", unidade_sel["id"]) \
+        .execute().data
 
     ambiente_sel = st.selectbox(
         "Ambiente",
         ambientes,
-        format_func=lambda x: x["nome"]
+        format_func=lambda x: x["nome"],
+        key="item_ambiente"
     )
+
+    # Material com opção "Outro"
+    lista_materiais = materiais + [{"id": "outro", "nome": "Outro..."}]
 
     material_sel = st.selectbox(
         "Material",
-        materiais,
-        format_func=lambda x: x["nome"]
+        lista_materiais,
+        format_func=lambda x: x["nome"],
+        key="item_material"
     )
 
-    patrimonio = st.text_input("Patrimônio")
+    if material_sel["id"] == "outro":
+        novo_material = st.text_input("Nome do novo material", key="novo_mat_item")
+    else:
+        novo_material = None
+
+    patrimonio = st.text_input("Patrimônio", key="patrimonio_item")
 
     status = st.selectbox("Status", [
         "satisfatorio",
         "trocar_nao_urgente",
         "trocar_urgente"
-    ])
+    ], key="status_item")
 
-    if st.button("Salvar Item"):
+    if st.button("Salvar Item", key="btn_salvar_item"):
+
+        # Criar material se for "outro"
+        if material_sel["id"] == "outro":
+            if not novo_material:
+                st.warning("Digite o nome do material")
+                st.stop()
+
+            mat = supabase.table("materiais").insert({
+                "nome": novo_material
+            }).execute().data
+
+            material_id = mat[0]["id"]
+
+        else:
+            material_id = material_sel["id"]
+
         supabase.table("itens_inventario").insert({
             "ambiente_id": ambiente_sel["id"],
-            "material_id": material_sel["id"],
+            "material_id": material_id,
             "patrimonio": patrimonio,
             "status": status
         }).execute()
 
         st.success("Item cadastrado!")
+        st.rerun()
+
+    # =========================
+    # FILTROS AVANÇADOS
+    # =========================
+    st.subheader("🔎 Consulta de Itens")
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        f_unidade = st.selectbox(
+            "Filtrar por unidade",
+            ["Todas"] + [u["nome"] for u in unidades],
+            key="filtro_unidade"
+        )
+
+    with col2:
+        f_material = st.text_input("Filtrar por material", key="filtro_material")
+
+    with col3:
+        f_status = st.selectbox(
+            "Status",
+            ["Todos", "satisfatorio", "trocar_nao_urgente", "trocar_urgente"],
+            key="filtro_status"
+        )
+
+    # =========================
+    # CARREGAR DADOS
+    # =========================
+    ambientes = supabase.table("ambientes").select("*").execute().data
+    materiais = supabase.table("materiais").select("*").execute().data
+    itens = supabase.table("itens_inventario").select("*").execute().data
+
+    dict_amb = {a["id"]: a for a in ambientes}
+    dict_mat = {m["id"]: m for m in materiais}
+    dict_uni = {u["id"]: u for u in unidades}
+
+    # =========================
+    # FILTRAR
+    # =========================
+    resultado = []
+
+    for item in itens:
+        amb = dict_amb.get(item["ambiente_id"], {})
+        mat = dict_mat.get(item["material_id"], {})
+        uni = dict_uni.get(amb.get("unidade_id"), {})
+
+        if f_unidade != "Todas" and uni.get("nome") != f_unidade:
+            continue
+
+        if f_material and f_material.lower() not in mat.get("nome", "").lower():
+            continue
+
+        if f_status != "Todos" and item["status"] != f_status:
+            continue
+
+        resultado.append({
+            "unidade": uni.get("nome"),
+            "ambiente": amb.get("nome"),
+            "material": mat.get("nome"),
+            "patrimonio": item["patrimonio"],
+            "status": item["status"]
+        })
+
+    # =========================
+    # CORES
+    # =========================
+    def cor_status(s):
+        if s == "trocar_urgente":
+            return "🔴"
+        elif s == "trocar_nao_urgente":
+            return "🟡"
+        else:
+            return "🟢"
+
+    # =========================
+    # EXIBIÇÃO AGRUPADA
+    # =========================
+    if not resultado:
+        st.info("Nenhum item encontrado")
+    else:
+        unidades_agrupadas = {}
+
+        for r in resultado:
+            unidades_agrupadas.setdefault(r["unidade"], []).append(r)
+
+        for unidade, itens_u in unidades_agrupadas.items():
+            st.subheader(f"🏥 {unidade}")
+
+            for i in itens_u:
+                st.write(
+                    cor_status(i["status"]),
+                    i["ambiente"],
+                    "|",
+                    i["material"],
+                    "| Patrimônio:",
+                    i["patrimonio"]
+                )
