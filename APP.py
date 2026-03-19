@@ -8,13 +8,7 @@ key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im91
 
 supabase = create_client(url, key)
 
-st.title("Teste")
 
-try:
-    dados = supabase.table("ambientes").select("*").execute()
-    st.write(dados.data)
-except Exception as e:
-    st.write(e)
 
 
 
