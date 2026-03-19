@@ -427,38 +427,38 @@ with aba3:
                 st.rerun()
 
 with aba4:
-        st.header("📋 Controle de materiais")
-    
-        # =========================
-        # CONTROLE DE RESET
-        # =========================
-        if "reset_form" not in st.session_state:
-            st.session_state["reset_form"] = False
-    
-        # =========================
-        # CADASTRO DE ITEM
-        # =========================
-        st.subheader("➕ Cadastrar Item")
-    
-        unidades = supabase.table("unidades").select("*").execute().data
-        materiais = supabase.table("materiais").select("*").execute().data
-    
-        # =========================
-        # UNIDADE
-        # =========================
-        unidade_sel = st.selectbox(
-            "Unidade",
-            unidades,
-            format_func=lambda x: x["nome"],
-            index=None if st.session_state["reset_form"] else 0,
-            placeholder="Selecione ou digite a unidade...",
-            key="item_unidade"
-        )
-    
-        if unidade_sel is None:
-            st.info("Selecione uma unidade para continuar")
-            st.stop()
-    
+    st.header("📋 Controle de materiais")
+
+    # =========================
+    # CONTROLE DE RESET
+    # =========================
+    if "reset_form" not in st.session_state:
+        st.session_state["reset_form"] = False
+
+    # =========================
+    # CADASTRO DE ITEM
+    # =========================
+    st.subheader("➕ Cadastrar Item")
+
+    unidades = supabase.table("unidades").select("*").execute().data
+    materiais = supabase.table("materiais").select("*").execute().data
+
+    # =========================
+    # UNIDADE
+    # =========================
+    unidade_sel = st.selectbox(
+        "Unidade",
+        unidades,
+        format_func=lambda x: x["nome"],
+        index=None if st.session_state["reset_form"] else 0,
+        placeholder="Selecione ou digite a unidade...",
+        key="item_unidade"
+    )
+
+    if unidade_sel is None:
+        st.info("Selecione uma unidade para continuar")
+        st.stop()
+
         # =========================
         # AMBIENTE
         # =========================
