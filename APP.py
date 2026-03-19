@@ -603,7 +603,6 @@ else:
                     for i in itens_lista:
                         col1, col2, col3 = st.columns([6,1,1])
                     
-                        # INFO
                         with col1:
                             st.write(
                                 cor(i["status"]),
@@ -612,40 +611,113 @@ else:
                                 i["patrimonio"]
                             )
                     
-                        # EDITAR
                         with col2:
                             if st.button("✏️", key=f"edit_item_{i['id']}"):
-                                st.session_state["edit_item"] = i
+                                st.session_state["edit_item"] = {
+                                    "item": i,
+                                    "ambiente": ambiente,
+                                    "unidade": unidade
+                                }
                     
-                        # EXCLUIR
                         with col3:
                             if st.button("🗑️", key=f"del_item_{i['id']}"):
-                                st.session_state["confirm_delete_item"] = i
-
-if "confirm_delete_item" in st.session_state:
-
-    item = st.session_state["confirm_delete_item"]
-
-    st.warning("Deseja excluir este item?")
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        if st.button("Sim, excluir", key="conf_del_item"):
-
-            supabase.table("itens_inventario") \
-                .delete() \
-                .eq("id", item["id"]) \
-                .execute()
-
-            st.success("Item excluído!")
-            del st.session_state["confirm_delete_item"]
-            st.rerun()
-
-    with col2:
-        if st.button("Cancelar", key="cancel_del_item"):
-            del st.session_state["confirm_delete_item"]
-            st.rerun()
+                                st.session_state["confirm_delete_item"] = {
+                                    "item": i,
+                                    "ambiente": ambiente,
+                                    "unidade": unidade
+                                }
+                    
+                        # 🔥 EDITAR DENTRO DO AMBIENTE
+                        if "edit_item" in st.session_state and st.session_state["edit_item"]["item"]["id"] == i["id"]:
+                    
+                            item = st.session_state["edit_item"]["item"]
+                    
+                            st.markdown("**✏️ Editando item:**")
+                    
+                            novo_patrimonio = st.text_input(
+                                "Patrimônio",
+                                value=item["patrimonio"],
+                                key=f"edit_p_{item['id']}"
+                            )
+                    
+                            novo_status = st.selectbox(
+                                "Status",
+                                ["satisfatorio", "trocar_nao_urgente", "trocar_urgente"],
+                                index=["satisfatorio", "trocar_nao_urgente", "trocar_urgente"].index(item["status"]),
+                                key=f"edit_s_{item['id']}"
+                            )
+                    
+                            col_a, col_b = st.columns(2)
+                    
+                            with col_a:
+                                if st.button("Salvar", key=f"save_{item['id']}"):
+                                    supabase.table("itens_inventario") \
+                                        .update({
+                                            "patrimonio": novo_patrimonio,
+                                            "status": novo_status
+                                        }) \
+                                        .eq("id", item["id"]) \
+                                        .execute()
+                    
+                                    st.success("Atualizado!")
+                                    del st.session_state["edit_item"]
+                                    st.rerun()
+                    
+                            with col_b:
+                                if st.button("Cancelar", key=f"cancel_{item['id']}"):
+                                    del st.session_state["edit_item"]
+                                    st.rerun()
+                    
+                        # 🔥 DELETE DENTRO DO AMBIENTE
+                        if "confirm_delete_item" in st.session_state and st.session_state["confirm_delete_item"]["item"]["id"] == i["id"]:
+                    
+                            item = st.session_state["confirm_delete_item"]["item"]
+                    
+                            st.warning("Excluir este item?")
+                    
+                            col_a, col_b = st.columns(2)
+                    
+                            with col_a:
+                                if st.button("Sim", key=f"del_yes_{item['id']}"):
+                    
+                                    supabase.table("itens_inventario") \
+                                        .delete() \
+                                        .eq("id", item["id"]) \
+                                        .execute()
+                    
+                                    st.success("Excluído!")
+                                    del st.session_state["confirm_delete_item"]
+                                    st.rerun()
+                    
+                            with col_b:
+                                if st.button("Não", key=f"del_no_{item['id']}"):
+                                    del st.session_state["confirm_delete_item"]
+                                    st.rerun()
+                    
+                    if "confirm_delete_item" in st.session_state:
+                    
+                        item = st.session_state["confirm_delete_item"]
+                    
+                        st.warning("Deseja excluir este item?")
+                    
+                        col1, col2 = st.columns(2)
+                    
+                        with col1:
+                            if st.button("Sim, excluir", key="conf_del_item"):
+                    
+                                supabase.table("itens_inventario") \
+                                    .delete() \
+                                    .eq("id", item["id"]) \
+                                    .execute()
+                    
+                                st.success("Item excluído!")
+                                del st.session_state["confirm_delete_item"]
+                                st.rerun()
+                    
+                        with col2:
+                            if st.button("Cancelar", key="cancel_del_item"):
+                                del st.session_state["confirm_delete_item"]
+                                st.rerun()
 
 
 if "edit_item" in st.session_state:
