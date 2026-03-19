@@ -20,8 +20,8 @@ supabase = create_client(url, key)
 aba1, aba2, aba3, aba4 = st.tabs([
     "Unidades",
     "Ambientes",
-    "Materiais",
-    "Itens"
+    "Editar Materiais",
+    "Controle de Materiais"
 ])
 
 
@@ -300,7 +300,7 @@ with aba2:
             st.rerun()
 
 with aba3:
-    st.header("📦 Materiais base")
+    st.header("📦 Editar Materiais")
 
     # -------------------------
     # CRIAR MATERIAL
