@@ -364,29 +364,45 @@ with aba2:
             st.rerun()
 
 with aba3:
+
     st.header("📦 Editar Materiais")
+
+    # 1. Inicializa o contador de reset para Materiais se não existir
+    if "reset_mat_count" not in st.session_state:
+        st.session_state.reset_mat_count = 0
 
     # -------------------------
     # CRIAR MATERIAL
     # -------------------------
-    novo_material = st.text_input("Novo material", key="input_novo_material")
+    # 2. Gera a chave dinâmica baseada no contador
+    chave_material = f"input_novo_material_{st.session_state.reset_mat_count}"
+    
+    novo_material = st.text_input("Novo material", key=chave_material)
 
     if st.button("Adicionar", key="btn_add_material"):
         if not novo_material:
             st.warning("Digite o nome do material")
         else:
             nome_limpo = novo_material.strip()
+            
             # Verifica se já existe no banco
             existe = supabase.table("materiais").select("*").eq("nome", nome_limpo).execute().data
 
             if existe:
                 st.warning("Material já existe")
             else:
-                supabase.table("materiais").insert({"nome": nome_limpo}).execute()
-                st.success("Material criado!")
-                # LIMPA O CACHE para a Aba 4 enxergar o novo material
-                st.cache_data.clear()
-                st.rerun()
+                try:
+                    supabase.table("materiais").insert({"nome": nome_limpo}).execute()
+                    st.success(f"✅ Material '{nome_limpo}' criado!")
+                    
+                    # 3. O TRUQUE: Aumenta o contador para resetar o input no próximo rerun
+                    st.session_state.reset_mat_count += 1
+                    
+                    # LIMPA O CACHE para a Aba 4 enxergar o novo material
+                    st.cache_data.clear()
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Erro ao salvar material: {e}")
 
     st.markdown("---")
     
