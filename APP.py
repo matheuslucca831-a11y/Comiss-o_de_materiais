@@ -91,6 +91,9 @@ with aba1:
     # -------------------------
     # CRIAR UNIDADE
     # -------------------------
+# -------------------------
+    # CRIAR UNIDADE
+    # -------------------------
     nome_unidade = st.text_input("Nome da unidade", key="input_create_unidade")
 
     if st.button("Criar Unidade", key="btn_create_unidade"):
@@ -98,7 +101,7 @@ with aba1:
         if not nome_unidade:
             st.warning("Digite o nome da unidade")
         else:
-            # Verifica se existe usando os dados que já temos no cache (evita consulta ao banco)
+            # Verifica se existe usando os dados que já temos no cache
             existe = [u for u in unidades_data if u["nome"].lower() == nome_unidade.lower()]
 
             if existe:
@@ -109,6 +112,10 @@ with aba1:
                 }).execute()
 
                 st.success("Unidade criada!")
+                
+                # --- A MÁGICA PARA LIMPAR O INPUT AQUI ---
+                st.session_state["input_create_unidade"] = "" 
+                
                 # Limpa o cache para que a nova unidade apareça na listagem
                 st.cache_data.clear()
                 st.rerun()
