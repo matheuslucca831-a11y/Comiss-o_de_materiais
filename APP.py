@@ -497,10 +497,8 @@ with aba4:
                 "Status", ["satisfatorio", "trocar_nao_urgente", "trocar_urgente"],
                 index=0, key="status_item"
             )
-
             if st.button("Salvar Item", key="btn_salvar_item"):
                 material_id = None
-                # Lógica de novo material
                 if material_sel["id"] == "outro":
                     if not novo_material:
                         st.warning("Digite o nome do material")
@@ -511,27 +509,35 @@ with aba4:
                     material_id = material_sel["id"]
 
                 if material_id:
-                    supabase.table("itens_inventario").insert({
+                    # 1. Insere o item e pega o ID gerado (res.data[0])
+                    res_item = supabase.table("itens_inventario").insert({
                         "ambiente_id": ambiente_sel["id"],
                         "material_id": material_id,
                         "patrimonio": patrimonio,
                         "status": status,
                         "observacao": obs_item
                     }).execute()
+                    
+                    # 2. Registra na AUDITORIA a criação
+                    if res_item.data:
+                        novo_id_item = res_item.data[0]["id"]
+                        detalhe_criacao = f"📦 Item cadastrado no ambiente: {ambiente_sel['nome']}. Status inicial: {status}"
+                        
+                        supabase.table("historico_alteracoes").insert({
+                            "item_id": novo_id_item,
+                            "usuario": "Admin", # Aqui você pode usar st.session_state.usuario se tiver login
+                            "detalhes": detalhe_criacao
+                        }).execute()
 
-                    st.success("Item cadastrado com sucesso!")
+                    st.success(f"Item {material_sel['nome']} cadastrado e registrado no histórico!")
                     
-                    # --- LÓGICA PARA LIMPAR O FORMULÁRIO ---
-                    chaves_para_limpar = [
-                        "item_unidade", "item_ambiente", "item_material", 
-                        "novo_mat_item", "patrimonio_item", "obs_item", "status_item"
-                    ]
+                    # Limpeza do formulário (como combinamos antes)
+                    chaves_para_limpar = ["item_unidade", "item_ambiente", "item_material", "novo_mat_item", "patrimonio_item", "obs_item"]
                     for chave in chaves_para_limpar:
-                        if chave in st.session_state:
-                            del st.session_state[chave]
+                        if chave in st.session_state: del st.session_state[chave]
                     
-                    st.cache_data.clear() # Limpa cache para atualizar a lista abaixo
-                    st.rerun() # Recarrega a página com o form vazio
+                    st.cache_data.clear()
+                    st.rerun()
     else:
         st.info("Selecione uma unidade acima para realizar um novo cadastro.")
 
