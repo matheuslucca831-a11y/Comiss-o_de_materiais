@@ -427,111 +427,126 @@ with aba3:
                 st.rerun()
 
 with aba4:
-    st.header("📋 Controle de materiais")
-
-    # =========================
-    # CADASTRO DE ITEM
-    # =========================
-    st.subheader("➕ Cadastrar Item")
-
-    unidades = supabase.table("unidades").select("*").execute().data
-    materiais = supabase.table("materiais").select("*").execute().data
-
-    # Selecionar unidade
-    unidade_sel = st.selectbox(
-        "Unidade",
-        unidades,
-        format_func=lambda x: x["nome"],
-        index=None,
-        placeholder="Selecione ou digite a unidade...",
-        key="item_unidade"
-    )
-
-    # ✅ AQUI
-    if unidade_sel is None:
-        st.info("Selecione uma unidade para continuar")
-        st.stop()
-
-    # Buscar ambientes da unidade
-    ambientes = supabase.table("ambientes") \
-        .select("*") \
-        .eq("unidade_id", unidade_sel["id"]) \
-        .execute().data
-
-    ambiente_sel = st.selectbox(
-        "Ambiente",
-        ambientes,
-        format_func=lambda x: x["nome"],
-        index=None,
-        placeholder="Selecione o ambiente...",
-        key="item_ambiente"
-    )
-
-    # ✅ AQUI
-    if not ambiente_sel:
-        st.stop()
-
-    # Material com opção "Outro"
-    lista_materiais = materiais + [{"id": "outro", "nome": "Outro..."}]
-
-    material_sel = st.selectbox(
-        "Material",
-        lista_materiais,
-        format_func=lambda x: x["nome"],
-        index=None,
-        placeholder="Selecione ou digite o material...",
-        key="item_material"
-    )
-
-    if material_sel and material_sel["id"] == "outro":
-        novo_material = st.text_input("Nome do novo material", key="novo_mat_item")
-    else:
-        novo_material = None
-
-    patrimonio = st.text_input("Patrimônio", key="patrimonio_item")
-
-    status = st.selectbox("Status", [
-        "satisfatorio",
-        "trocar_nao_urgente",
-        "trocar_urgente"
-    ], key="status_item")
-
-    if st.button("Salvar Item", key="btn_salvar_item"):
-
-        # Criar material se for "outro"
-        if not material_sel:
-            st.warning("Selecione um material")
+        st.header("📋 Controle de materiais")
+    
+        # =========================
+        # CONTROLE DE RESET
+        # =========================
+        if "reset_form" not in st.session_state:
+            st.session_state["reset_form"] = False
+    
+        # =========================
+        # CADASTRO DE ITEM
+        # =========================
+        st.subheader("➕ Cadastrar Item")
+    
+        unidades = supabase.table("unidades").select("*").execute().data
+        materiais = supabase.table("materiais").select("*").execute().data
+    
+        # =========================
+        # UNIDADE
+        # =========================
+        unidade_sel = st.selectbox(
+            "Unidade",
+            unidades,
+            format_func=lambda x: x["nome"],
+            index=None if st.session_state["reset_form"] else 0,
+            placeholder="Selecione ou digite a unidade...",
+            key="item_unidade"
+        )
+    
+        if unidade_sel is None:
+            st.info("Selecione uma unidade para continuar")
             st.stop()
-        
-        if material_sel["id"] == "outro":
-
-            mat = supabase.table("materiais").insert({
-                "nome": novo_material
-            }).execute().data
-
-            material_id = mat[0]["id"]
-
+    
+        # =========================
+        # AMBIENTE
+        # =========================
+        ambientes = supabase.table("ambientes") \
+            .select("*") \
+            .eq("unidade_id", unidade_sel["id"]) \
+            .execute().data
+    
+        ambiente_sel = st.selectbox(
+            "Ambiente",
+            ambientes,
+            format_func=lambda x: x["nome"],
+            index=None if st.session_state["reset_form"] else 0,
+            placeholder="Selecione o ambiente...",
+            key="item_ambiente"
+        )
+    
+        if ambiente_sel is None:
+            st.stop()
+    
+        # =========================
+        # MATERIAL
+        # =========================
+        lista_materiais = materiais + [{"id": "outro", "nome": "Outro..."}]
+    
+        material_sel = st.selectbox(
+            "Material",
+            lista_materiais,
+            format_func=lambda x: x["nome"],
+            index=None if st.session_state["reset_form"] else 0,
+            placeholder="Selecione ou digite o material...",
+            key="item_material"
+        )
+    
+        if material_sel and material_sel["id"] == "outro":
+            novo_material = st.text_input("Nome do novo material", key="novo_mat_item")
         else:
-            material_id = material_sel["id"]
-
-        supabase.table("itens_inventario").insert({
-            "ambiente_id": ambiente_sel["id"],
-            "material_id": material_id,
-            "patrimonio": patrimonio,
-            "status": status
-        }).execute()
-
-        st.success("Item cadastrado!")
-        
-        # 🔥 RESET COMPLETO
-        st.session_state["item_unidade"] = None
-        st.session_state["item_ambiente"] = None
-        st.session_state["item_material"] = None
-        st.session_state["novo_mat_item"] = ""
-        st.session_state["patrimonio_item"] = ""
-        st.session_state["status_item"] = "satisfatorio"
-        
-        st.rerun()
+            novo_material = None
+    
+        patrimonio = st.text_input("Patrimônio", key="patrimonio_item")
+    
+        status = st.selectbox(
+            "Status",
+            ["satisfatorio", "trocar_nao_urgente", "trocar_urgente"],
+            key="status_item"
+        )
+    
+        # =========================
+        # SALVAR
+        # =========================
+        if st.button("Salvar Item", key="btn_salvar_item"):
+    
+            if not material_sel:
+                st.warning("Selecione um material")
+                st.stop()
+    
+            if material_sel["id"] == "outro":
+                if not novo_material:
+                    st.warning("Digite o nome do material")
+                    st.stop()
+    
+                mat = supabase.table("materiais").insert({
+                    "nome": novo_material
+                }).execute().data
+    
+                material_id = mat[0]["id"]
+    
+            else:
+                material_id = material_sel["id"]
+    
+            supabase.table("itens_inventario").insert({
+                "ambiente_id": ambiente_sel["id"],
+                "material_id": material_id,
+                "patrimonio": patrimonio,
+                "status": status
+            }).execute()
+    
+            st.success("Item cadastrado!")
+    
+            # 🔥 ATIVA RESET
+            st.session_state["reset_form"] = True
+    
+            st.rerun()
+    
+        # =========================
+        # DESATIVA RESET (IMPORTANTE)
+        # =========================
+        st.session_state["reset_form"] = False
 
     # =========================
     # FILTROS
