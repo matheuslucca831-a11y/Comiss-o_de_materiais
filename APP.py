@@ -530,8 +530,8 @@ with aba4:
         }).execute()
 
         st.success("Item cadastrado com sucesso!")
-        # 🔥 A SOLUÇÃO DEFINITIVA PARA LIMPAR TUDO:
-        chaves_para_limpar = [
+        # 🔥 A FORMA CORRETA: Deletar as chaves para resetar
+        chaves_para_resetar = [
             "item_unidade", 
             "item_ambiente", 
             "item_material", 
@@ -540,12 +540,12 @@ with aba4:
             "status_item"
         ]
         
-        for chave in chaves_para_limpar:
+        for chave in chaves_para_resetar:
             if chave in st.session_state:
-                st.session_state[chave] = None # Primeiro setamos como None
-                # Opcional: del st.session_state[chave] # Depois deletamos
+                # IMPORTANTE: Apenas delete. Não tente atribuir None.
+                del st.session_state[chave]
         
-        # Garante que o fluxo não pare em nenhum st.stop() antes de recarregar
+        # Agora sim, o rerun limpa a interface visual
         st.rerun()
 
     # =========================
