@@ -593,31 +593,68 @@ with aba4:
                                 with st.container(border=True):
                                     st.info(f"Histórico: {i['mat_nome']}")
                                     
-                                    # Tente ordenar por 'data_alteracao' ou remova o .order() para testar
-                                    try:
-                                        logs = supabase.table("historico_alteracoes") \
-                                            .select("*") \
-                                            .eq("item_id", i["id"]) \
-                                            .order("data_alteracao", desc=True) \
-                                            .execute().data
-                                    except:
-                                        # Caso a coluna tenha outro nome, busca sem ordem para não travar o app
-                                        logs = supabase.table("historico_alteracoes") \
-                                            .select("*") \
-                                            .eq("item_id", i["id"]) \
-                                            .execute().data
-                            
+                                    # Busca os logs (certifique-se que a coluna no banco é 'created_at' como na imagem)
+                                    logs = supabase.table("historico_alteracoes").select("*").eq("item_id", i["id"]).order("created_at", desc=True).execute().data
+                                    
                                     if logs:
                                         for l in logs:
-                                            # Usa 'data_alteracao' que é o padrão que você estava usando antes
-                                            dt = l.get('data_alteracao') or l.get('created_at') or "Sem data"
-                                            st.write(f"⏰ {dt} | {l['detalhes']}")
+                                            # FORMATANDO A DATA DA IMAGEM
+                                            raw_date = l.get('created_at', '')
+                                            try:
+                                                # Transforma "2026-03-19T17:26..." em "19/03/2026 17:26"
+                                                dt_obj = datetime.fromisoformat(raw_date.replace('Z', '+00:00'))
+                                                dt_f = dt_obj.strftime('%d/%m/%Y %H:%M')
+                                            except:
+                                                dt_f = raw_date
+                                            
+                                            st.write(f"⏰ **{dt_f}** | {l['detalhes']}")
                                     else:
                                         st.write("Sem registros.")
                                     
                                     if st.button("Fechar Histórico", key=f"cls_aud_{i['id']}"):
                                         del st.session_state["view_audit_id"]
                                         st.rerun()
+
+                            # --- LOGICA DE EDIÇÃO (Ajustada para não travar) ---
+                            if st.session_state.get("edit_item_id") == i["id"]:
+                                with st.container(border=True):
+                                    st.markdown("### ✏️ Editar Item")
+                                    # Usamos chaves únicas baseadas no ID para o Streamlit não se confundir
+                                    n_pat = st.text_input("Novo Patrimônio", value=i["patrimonio"], key=f"inp_pat_{i['id']}")
+                                    n_obs = st.text_input("Nova Obs", value=i.get("observacao", ""), key=f"inp_obs_{i['id']}")
+                                    
+                                    status_opcoes = ["satisfatorio", "trocar_nao_urgente", "trocar_urgente"]
+                                    # Garantimos que o index existe
+                                    idx_status = status_opcoes.index(i["status"]) if i["status"] in status_opcoes else 0
+                                    
+                                    n_sta = st.selectbox("Novo Status", status_opcoes, index=idx_status, key=f"inp_sta_{i['id']}")
+                                    
+                                    c1, c2 = st.columns(2)
+                                    with c1:
+                                        if st.button("Salvar Alterações", key=f"save_btn_{i['id']}"):
+                                            # 1. Registra no histórico a mudança
+                                            detalhes_alt = f"Editado: Status {i['status']} -> {n_sta}. Pat: {n_pat}"
+                                            supabase.table("historico_alteracoes").insert({
+                                                "item_id": i["id"], 
+                                                "usuario": "Admin", 
+                                                "detalhes": detalhes_alt
+                                            }).execute()
+                                            
+                                            # 2. Atualiza o item
+                                            supabase.table("itens_inventario").update({
+                                                "patrimonio": n_pat, 
+                                                "status": n_sta, 
+                                                "observacao": n_obs
+                                            }).eq("id", i["id"]).execute()
+                                            
+                                            st.success("Atualizado!")
+                                            st.cache_data.clear() # Limpa o cache para a lista atualizar
+                                            del st.session_state["edit_item_id"] # Fecha o formulário
+                                            st.rerun()
+                                    with c2:
+                                        if st.button("Cancelar", key=f"cancel_btn_{i['id']}"):
+                                            del st.session_state["edit_item_id"]
+                                            st.rerun()
                             # --- MODAL DE EXCLUSÃO ---
                             if st.session_state.get("confirm_delete_item_id") == i["id"]:
                                 with st.container(border=True):
