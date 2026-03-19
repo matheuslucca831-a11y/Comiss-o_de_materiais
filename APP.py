@@ -483,7 +483,7 @@ with aba4:
         key="item_material"
     )
 
-    if material_sel["id"] == "outro":
+    if material_sel and material_sel["id"] == "outro":
         novo_material = st.text_input("Nome do novo material", key="novo_mat_item")
     else:
         novo_material = None
@@ -499,10 +499,11 @@ with aba4:
     if st.button("Salvar Item", key="btn_salvar_item"):
 
         # Criar material se for "outro"
+        if not material_sel:
+            st.warning("Selecione um material")
+            st.stop()
+        
         if material_sel["id"] == "outro":
-            if not novo_material:
-                st.warning("Digite o nome do material")
-                st.stop()
 
             mat = supabase.table("materiais").insert({
                 "nome": novo_material
