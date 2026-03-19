@@ -32,17 +32,7 @@ st.title("Sistema de Controle de Materiais")
 
 st.write("Use o menu lateral para navegar.")
 
-import streamlit as st
 
-st.title("Cadastro")
-
-
-try:
-    teste = supabase.table("ambientes").select("*").execute()
-    st.write("SUCESSO:", teste.data)
-except Exception as e:
-    st.write("ERRO REAL:")
-    st.write(e)
 
 # =========================
 # CADASTRAR AMBIENTE
