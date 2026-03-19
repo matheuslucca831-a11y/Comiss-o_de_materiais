@@ -427,7 +427,7 @@ with aba3:
                 st.rerun()
 
 with aba4:
-    st.header("📋 Itens")
+    st.header("📋 Controle de materiais")
 
     # =========================
     # CADASTRO DE ITEM
@@ -442,8 +442,15 @@ with aba4:
         "Unidade",
         unidades,
         format_func=lambda x: x["nome"],
+        index=None,
+        placeholder="Selecione ou digite a unidade...",
         key="item_unidade"
     )
+
+    # ✅ AQUI
+    if not unidade_sel:
+        st.info("Selecione uma unidade para continuar")
+        st.stop()
 
     # Buscar ambientes da unidade
     ambientes = supabase.table("ambientes") \
@@ -455,8 +462,14 @@ with aba4:
         "Ambiente",
         ambientes,
         format_func=lambda x: x["nome"],
+        index=None,
+        placeholder="Selecione o ambiente...",
         key="item_ambiente"
     )
+
+    # ✅ AQUI
+    if not ambiente_sel:
+        st.stop()
 
     # Material com opção "Outro"
     lista_materiais = materiais + [{"id": "outro", "nome": "Outro..."}]
@@ -465,6 +478,8 @@ with aba4:
         "Material",
         lista_materiais,
         format_func=lambda x: x["nome"],
+        index=None,
+        placeholder="Selecione ou digite o material...",
         key="item_material"
     )
 
@@ -506,6 +521,19 @@ with aba4:
         }).execute()
 
         st.success("Item cadastrado!")
+        
+        # 🔥 LIMPAR CAMPOS
+        for k in [
+            "item_unidade",
+            "item_ambiente",
+            "item_material",
+            "novo_mat_item",
+            "patrimonio_item",
+            "status_item"
+        ]:
+            if k in st.session_state:
+                del st.session_state[k]
+        
         st.rerun()
 
     # =========================
