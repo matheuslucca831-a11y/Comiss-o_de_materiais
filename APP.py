@@ -152,9 +152,8 @@ def status_icon(s):
 for r in resultado:
     st.write(
         status_icon(r["status"]),
-        r["ambientes"]["unidade"],
-        r["ambientes"]["nome"],
-        r["materiais"]["nome"],
+        r["ambiente_id"],
+        r["material_id"],
         r["patrimonio"]
     )
 
