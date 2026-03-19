@@ -18,11 +18,12 @@ import streamlit as st
 st.title("Cadastro")
 
 
-st.write("TESTE CONEXÃO")
-
-teste = supabase.table("ambientes").select("*").execute()
-
-st.write(teste)
+try:
+    teste = supabase.table("ambientes").select("*").execute()
+    st.write("SUCESSO:", teste.data)
+except Exception as e:
+    st.write("ERRO REAL:")
+    st.write(e)
 
 # =========================
 # CADASTRAR AMBIENTE
@@ -109,9 +110,7 @@ filtro_status = st.selectbox("Status", [
     "trocar_urgente"
 ])
 
-dados = supabase.table("itens_inventario") \
-    .select("id, patrimonio, status, ambientes(nome, unidade), materiais(nome)") \
-    .execute().data
+dados = supabase.table("itens_inventario").select("*").execute().data
 
 resultado = []
 
@@ -170,7 +169,7 @@ if st.button("Atualizar"):
 
     supabase.table("movimentacoes").insert({
         "item_id": item_sel["id"],
-        "material_id": item_sel["materiais"]["nome"],
+        "material_id": None,
         "tipo": "troca_status",
         "usuario": "admin"
     }).execute()
