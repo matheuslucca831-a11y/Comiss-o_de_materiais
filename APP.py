@@ -508,72 +508,68 @@ with aba4:
         st.success("Item cadastrado!")
         st.rerun()
 
-    # =========================
-    # FILTROS AVANÇADOS
-    # =========================
-    st.subheader("🔎 Consulta de Itens")
+# =========================
+# CONSULTA HIERÁRQUICA
+# =========================
+st.subheader("🔎 Consulta por Unidade")
 
-    col1, col2, col3 = st.columns(3)
+# Buscar unidades
+unidades = supabase.table("unidades").select("*").execute().data
 
-    with col1:
-        f_unidade = st.selectbox(
-            "Filtrar por unidade",
-            ["Todas"] + [u["nome"] for u in unidades],
-            key="filtro_unidade"
-        )
+busca_uni = st.text_input("Buscar unidade", key="busca_uni_itens")
 
-    with col2:
-        f_material = st.text_input("Filtrar por material", key="filtro_material")
+if busca_uni:
+    unidades = [u for u in unidades if busca_uni.lower() in u["nome"].lower()]
 
-    with col3:
-        f_status = st.selectbox(
-            "Status",
-            ["Todos", "satisfatorio", "trocar_nao_urgente", "trocar_urgente"],
-            key="filtro_status"
-        )
+for u in unidades:
 
-    # =========================
-    # CARREGAR DADOS
-    # =========================
-    ambientes = supabase.table("ambientes").select("*").execute().data
+    # Botão para abrir unidade
+    if st.button(f"🏥 {u['nome']}", key=f"btn_uni_{u['id']}"):
+        st.session_state["uni_aberta"] = u["id"]
+
+# =========================
+# MOSTRAR AMBIENTES
+# =========================
+if "uni_aberta" in st.session_state:
+
+    unidade_id = st.session_state["uni_aberta"]
+
+    ambientes = supabase.table("ambientes") \
+        .select("*") \
+        .eq("unidade_id", unidade_id) \
+        .execute().data
+
+    st.subheader("🏢 Ambientes")
+
+    for amb in ambientes:
+        if st.button(f"📍 {amb['nome']}", key=f"btn_amb_{amb['id']}"):
+            st.session_state["amb_aberto"] = amb["id"]
+
+# =========================
+# MOSTRAR ITENS
+# =========================
+if "amb_aberto" in st.session_state:
+
+    amb_id = st.session_state["amb_aberto"]
+
+    itens = supabase.table("itens_inventario") \
+        .select("*") \
+        .eq("ambiente_id", amb_id) \
+        .execute().data
+
     materiais = supabase.table("materiais").select("*").execute().data
-    itens = supabase.table("itens_inventario").select("*").execute().data
+    dict_mat = {m["id"]: m["nome"] for m in materiais}
 
-    dict_amb = {a["id"]: a for a in ambientes}
-    dict_mat = {m["id"]: m for m in materiais}
-    dict_uni = {u["id"]: u for u in unidades}
+    st.subheader("📦 Itens do ambiente")
 
-    # =========================
-    # FILTRAR
-    # =========================
-    resultado = []
+    # Filtro por status
+    filtro_status = st.selectbox(
+        "Filtrar status",
+        ["Todos", "satisfatorio", "trocar_nao_urgente", "trocar_urgente"],
+        key="filtro_status_hier"
+    )
 
-    for item in itens:
-        amb = dict_amb.get(item["ambiente_id"], {})
-        mat = dict_mat.get(item["material_id"], {})
-        uni = dict_uni.get(amb.get("unidade_id"), {})
-
-        if f_unidade != "Todas" and uni.get("nome") != f_unidade:
-            continue
-
-        if f_material and f_material.lower() not in mat.get("nome", "").lower():
-            continue
-
-        if f_status != "Todos" and item["status"] != f_status:
-            continue
-
-        resultado.append({
-            "unidade": uni.get("nome"),
-            "ambiente": amb.get("nome"),
-            "material": mat.get("nome"),
-            "patrimonio": item["patrimonio"],
-            "status": item["status"]
-        })
-
-    # =========================
-    # CORES
-    # =========================
-    def cor_status(s):
+    def cor(s):
         if s == "trocar_urgente":
             return "🔴"
         elif s == "trocar_nao_urgente":
@@ -581,26 +577,14 @@ with aba4:
         else:
             return "🟢"
 
-    # =========================
-    # EXIBIÇÃO AGRUPADA
-    # =========================
-    if not resultado:
-        st.info("Nenhum item encontrado")
-    else:
-        unidades_agrupadas = {}
+    for item in itens:
 
-        for r in resultado:
-            unidades_agrupadas.setdefault(r["unidade"], []).append(r)
+        if filtro_status != "Todos" and item["status"] != filtro_status:
+            continue
 
-        for unidade, itens_u in unidades_agrupadas.items():
-            st.subheader(f"🏥 {unidade}")
-
-            for i in itens_u:
-                st.write(
-                    cor_status(i["status"]),
-                    i["ambiente"],
-                    "|",
-                    i["material"],
-                    "| Patrimônio:",
-                    i["patrimonio"]
-                )
+        st.write(
+            cor(item["status"]),
+            dict_mat.get(item["material_id"], "Material"),
+            "| Patrimônio:",
+            item["patrimonio"]
+        )
