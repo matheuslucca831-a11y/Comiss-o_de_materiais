@@ -14,7 +14,6 @@ st.title("Sistema de Controle de Materiais")
 st.write("Use o menu lateral para navegar.")
 
 import streamlit as st
-from supabase_client import supabase
 
 st.title("Cadastro")
 
@@ -91,7 +90,6 @@ if st.button("Salvar Item"):
 
 
 import streamlit as st
-from supabase_client import supabase
 
 st.title("Consulta")
 
@@ -137,7 +135,6 @@ for r in resultado:
 
 
 import streamlit as st
-from supabase_client import supabase
 
 st.title("Movimentações")
 
