@@ -513,15 +513,20 @@ with aba4:
                 elif material_sel:
                     material_id = material_sel["id"]
 
-                if material_id:
-                    # 1. Salva o Item no Inventário
-                    res_item = supabase.table("itens_inventario").insert({
-                        "ambiente_id": ambiente_sel["id"],
-                        "material_id": material_id,
-                        "patrimonio": patrimonio,
-                        "status": status,
-                        "observacao": obs_item
-                    }).execute()
+                if material_id and ambiente_sel:
+                    try:
+                        res_item = supabase.table("itens_inventario").insert({
+                            "ambiente_id": ambiente_sel["id"],
+                            "material_id": material_id,
+                            "patrimonio": patrimonio,
+                            "status": status,
+                            "observacao": obs_item  # Verifique se o nome no banco é exatamente este
+                        }).execute()
+                        
+                        # O restante do código de auditoria vem aqui...
+                        
+                    except Exception as e:
+                        st.error(f"Erro ao inserir no banco: {e}")
             
                     # 2. Registra na AUDITORIA (Criação) com Horário de Brasília
                     if res_item.data:
