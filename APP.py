@@ -12,7 +12,8 @@ supabase = create_client(url, key)
 
 from datetime import datetime, timedelta
 
-
+def limpar_input_unidade():
+    st.session_state["input_create_unidade"] = ""
 
 def exportar_excel(df):
     output = io.BytesIO()
@@ -96,27 +97,25 @@ with aba1:
     # -------------------------
     nome_unidade = st.text_input("Nome da unidade", key="input_create_unidade")
 
-    if st.button("Criar Unidade", key="btn_create_unidade"):
-
+    if st.button("Criar Unidade", key="btn_create_unidade", on_click=limpar_input_unidade):
+    
         if not nome_unidade:
             st.warning("Digite o nome da unidade")
         else:
-            # Verifica se existe usando os dados que já temos no cache
             existe = [u for u in unidades_data if u["nome"].lower() == nome_unidade.lower()]
-
+    
             if existe:
                 st.warning("Unidade já existe")
             else:
                 supabase.table("unidades").insert({
                     "nome": nome_unidade
                 }).execute()
-
+    
                 st.success("Unidade criada!")
                 
-                # --- A MÁGICA PARA LIMPAR O INPUT AQUI ---
-                st.session_state["input_create_unidade"] = "" 
+                # Aqui você NÃO precisa mais setar o session_state manualmente, 
+                # pois o on_click já fez isso no início do clique.
                 
-                # Limpa o cache para que a nova unidade apareça na listagem
                 st.cache_data.clear()
                 st.rerun()
 
