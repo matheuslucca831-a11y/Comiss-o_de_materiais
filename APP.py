@@ -10,6 +10,25 @@ supabase = create_client(url, key)
 
 from datetime import datetime, timedelta
 
+
+
+def exportar_excel(df):
+    output = io.BytesIO()
+    # Certifique-se de que o engine é o que adicionamos no requirements
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='Inventario')
+        
+        # Aqui você pode adicionar as formatações de coluna que quiser
+        workbook = writer.book
+        worksheet = writer.sheets['Inventario']
+        
+        # Exemplo: Ajustar largura das colunas
+        worksheet.set_column('A:Z', 20)
+        
+    # CRITICAL: O seek(0) é o que garante que o Streamlit leia o arquivo do início
+    output.seek(0)
+    return output
+    
 def formato_brasilia(data_iso):
     if not data_iso:
         return ""
