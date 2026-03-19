@@ -241,15 +241,18 @@ with aba1:
             st.cache_data.clear()
             del st.session_state["edit_unidade"]
             st.rerun()
+            
 with aba2:
     st.header("🏢 Ambientes")
+
+    # 1. Inicializa o contador de reset específico para Ambientes
+    if "reset_amb_count" not in st.session_state:
+        st.session_state.reset_amb_count = 0
 
     # -------------------------
     # BUSCAR UNIDADE (USANDO CACHE)
     # -------------------------
     busca_unidade = st.text_input("🔎 Buscar unidade", key="busca_unidade_amb")
-
-    # Usando a função cacheadas em vez de query direta
     unidades_data = get_unidades() 
 
     unidades_filtradas = unidades_data
@@ -271,21 +274,29 @@ with aba2:
         # -------------------------
         st.subheader("➕ Novo Ambiente")
 
-        nome_ambiente = st.text_input("Nome do ambiente", key="input_nome_amb")
+        # 2. Chave dinâmica para o input de nome do ambiente
+        chave_amb = f"input_nome_amb_{st.session_state.reset_amb_count}"
+        nome_ambiente = st.text_input("Nome do ambiente", key=chave_amb)
 
         if st.button("Criar Ambiente"):
             if not nome_ambiente:
                 st.warning("Digite o nome do ambiente")
             else:
-                supabase.table("ambientes").insert({
-                    "nome": nome_ambiente,
-                    "unidade_id": unidade_sel["id"]
-                }).execute()
+                try:
+                    supabase.table("ambientes").insert({
+                        "nome": nome_ambiente.strip(),
+                        "unidade_id": unidade_sel["id"]
+                    }).execute()
 
-                st.success("Ambiente criado!")
-                # Limpa o cache para atualizar a lista de ambientes abaixo
-                st.cache_data.clear()
-                st.rerun()
+                    st.success(f"✅ Ambiente '{nome_ambiente}' criado na unidade {unidade_sel['nome']}!")
+                    
+                    # 3. O Pulo do Gato: Incrementa o contador para limpar o campo
+                    st.session_state.reset_amb_count += 1
+                    
+                    st.cache_data.clear()
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Erro ao salvar: {e}")
 
         # -------------------------
         # LISTAR AMBIENTES DA UNIDADE (USANDO CACHE)
