@@ -17,163 +17,114 @@ supabase = create_client(url, key)
 
 
 
-
-import streamlit as st
-
-st.set_page_config(page_title="Controle de Materiais", layout="wide")
-
-st.title("Sistema de Controle de Materiais")
-
-st.write("Use o menu lateral para navegar.")
-
-
-
-# =========================
-# CADASTRAR AMBIENTE
-# =========================
-st.subheader("Novo Ambiente")
-
-nome = st.text_input("Nome do ambiente")
-unidade = st.text_input("Unidade")
-
-if st.button("Salvar Ambiente"):
-    supabase.table("ambientes").insert({
-        "nome": nome,
-        "unidade": unidade
-    }).execute()
-    st.success("Ambiente criado!")
-
-# =========================
-# CADASTRAR ITEM
-# =========================
-st.subheader("Cadastrar Item")
-
-ambientes = supabase.table("ambientes").select("*").execute().data
-materiais = supabase.table("materiais").select("*").execute().data
-
-ambiente = st.selectbox("Ambiente", [a["nome"] for a in ambientes])
-
-lista_materiais = [m["nome"] for m in materiais] + ["Outro..."]
-material_sel = st.selectbox("Material", lista_materiais)
-
-if material_sel == "Outro...":
-    material_nome = st.text_input("Novo material")
-else:
-    material_nome = material_sel
-
-patrimonio = st.text_input("Patrimônio")
-
-status = st.selectbox("Status", [
-    "satisfatorio",
-    "trocar_nao_urgente",
-    "trocar_urgente"
+aba1, aba2, aba3, aba4 = st.tabs([
+    "Unidades",
+    "Ambientes",
+    "Materiais",
+    "Itens"
 ])
 
-if st.button("Salvar Item"):
 
-    mat = supabase.table("materiais").select("*").eq("nome", material_nome).execute().data
+with aba1:
+    st.header("🏥 Unidades")
 
-    if not mat:
-        mat = supabase.table("materiais").insert({
-            "nome": material_nome
-        }).execute().data
+    nome_unidade = st.text_input("Nome da unidade")
 
-    material_id = mat[0]["id"]
-    ambiente_id = [a["id"] for a in ambientes if a["nome"] == ambiente][0]
+    if st.button("Criar Unidade"):
+        supabase.table("unidades").insert({
+            "nome": nome_unidade
+        }).execute()
+        st.success("Unidade criada!")
 
-    item = supabase.table("itens_inventario").insert({
-        "ambiente_id": ambiente_id,
-        "material_id": material_id,
-        "patrimonio": patrimonio,
-        "status": status
-    }).execute().data
+    unidades = supabase.table("unidades").select("*").execute().data
 
-    # HISTÓRICO
-    supabase.table("movimentacoes").insert({
-        "item_id": item[0]["id"],
-        "ambiente_id": ambiente_id,
-        "material_id": material_id,
-        "tipo": "entrada",
-        "usuario": "admin"
-    }).execute()
-
-    st.success("Item cadastrado!")
+    for u in unidades:
+        st.write(u["nome"])
 
 
-import streamlit as st
+with aba2:
+    st.header("🏢 Ambientes")
 
-st.title("Consulta")
+    unidades = supabase.table("unidades").select("*").execute().data
 
-busca = st.text_input("Buscar material ou patrimônio")
-
-filtro_status = st.selectbox("Status", [
-    "Todos",
-    "satisfatorio",
-    "trocar_nao_urgente",
-    "trocar_urgente"
-])
-
-dados = supabase.table("itens_inventario").select("*").execute().data
-
-resultado = []
-
-for item in dados:
-    if (
-        busca.lower() in str(item["patrimonio"]).lower()
-        or busca.lower() in item["materiais"]["nome"].lower()
-    ):
-        if filtro_status == "Todos" or item["status"] == filtro_status:
-            resultado.append(item)
-
-def status_icon(s):
-    if s == "trocar_urgente":
-        return "🔴"
-    elif s == "trocar_nao_urgente":
-        return "🟡"
-    else:
-        return "🟢"
-
-for r in resultado:
-    st.write(
-        status_icon(r["status"]),
-        r["ambiente_id"],
-        r["material_id"],
-        r["patrimonio"]
+    unidade_sel = st.selectbox(
+        "Selecione a unidade",
+        unidades,
+        format_func=lambda x: x["nome"]
     )
 
+    nome_ambiente = st.text_input("Nome do ambiente")
 
-import streamlit as st
+    if st.button("Criar Ambiente"):
+        supabase.table("ambientes").insert({
+            "nome": nome_ambiente,
+            "unidade_id": unidade_sel["id"]
+        }).execute()
+        st.success("Ambiente criado!")
 
-st.title("Movimentações")
+    ambientes = supabase.table("ambientes").select("*").execute().data
 
-dados = supabase.table("itens_inventario") \
-    .select("id, patrimonio, status, materiais(nome)") \
-    .execute().data
+    for a in ambientes:
+        st.write(a["nome"])
 
-item_sel = st.selectbox(
-    "Selecionar item",
-    dados,
-    format_func=lambda x: f'{x["materiais"]["nome"]} - {x["patrimonio"]}'
-)
 
-novo_status = st.selectbox("Novo status", [
-    "satisfatorio",
-    "trocar_nao_urgente",
-    "trocar_urgente"
-])
+with aba3:
+    st.header("📦 Materiais")
 
-if st.button("Atualizar"):
+    materiais = supabase.table("materiais").select("*").execute().data
 
-    supabase.table("itens_inventario") \
-        .update({"status": novo_status}) \
-        .eq("id", item_sel["id"]) \
-        .execute()
+    for m in materiais:
+        col1, col2 = st.columns([5,1])
 
-    supabase.table("movimentacoes").insert({
-        "item_id": item_sel["id"],
-        "material_id": None,
-        "tipo": "troca_status",
-        "usuario": "admin"
-    }).execute()
+        with col1:
+            st.write(m["nome"])
 
-    st.success("Status atualizado!")
+        with col2:
+            if st.button("🗑️", key=m["id"]):
+                supabase.table("materiais").delete().eq("id", m["id"]).execute()
+                st.rerun()
+
+    novo_material = st.text_input("Novo material")
+
+    if st.button("Adicionar"):
+        supabase.table("materiais").insert({
+            "nome": novo_material
+        }).execute()
+        st.success("Material criado!")
+
+
+with aba4:
+    st.header("📋 Cadastro de Item")
+
+    ambientes = supabase.table("ambientes").select("*").execute().data
+    materiais = supabase.table("materiais").select("*").execute().data
+
+    ambiente_sel = st.selectbox(
+        "Ambiente",
+        ambientes,
+        format_func=lambda x: x["nome"]
+    )
+
+    material_sel = st.selectbox(
+        "Material",
+        materiais,
+        format_func=lambda x: x["nome"]
+    )
+
+    patrimonio = st.text_input("Patrimônio")
+
+    status = st.selectbox("Status", [
+        "satisfatorio",
+        "trocar_nao_urgente",
+        "trocar_urgente"
+    ])
+
+    if st.button("Salvar Item"):
+        supabase.table("itens_inventario").insert({
+            "ambiente_id": ambiente_sel["id"],
+            "material_id": material_sel["id"],
+            "patrimonio": patrimonio,
+            "status": status
+        }).execute()
+
+        st.success("Item cadastrado!")
