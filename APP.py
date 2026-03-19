@@ -584,16 +584,34 @@ with aba4:
                             if st.session_state.get("view_audit_id") == i["id"]:
                                 with st.container(border=True):
                                     st.info(f"Histórico: {i['mat_nome']}")
-                                    logs = supabase.table("historico_alteracoes").select("*").eq("item_id", i["id"]).execute().data
+                                    
+                                    # Chamada segura ao banco (sem .order() para não causar APIError)
+                                    res = supabase.table("historico_alteracoes").select("*").eq("item_id", i["id"]).execute()
+                                    logs = res.data
+                                    
                                     if logs:
+                                        # Ordenamos via Python para garantir que o mais novo fique em cima
+                                        logs = sorted(logs, key=lambda x: x.get('created_at', ''), reverse=True)
+                                        
                                         for l in logs:
-                                            raw_date = l.get('created_at', '')
-                                            try:
-                                                dt_obj = datetime.fromisoformat(raw_date.replace('Z', '+00:00'))
-                                                dt_f = dt_obj.strftime('%d/%m/%Y %H:%M')
-                                            except: dt_f = raw_date
+                                            # Pegamos o 'created_at' ou 'data_alteracao'
+                                            raw_date = l.get('created_at') or l.get('data_alteracao')
+                                            
+                                            if raw_date:
+                                                try:
+                                                    # Limpa a string de data (remove milissegundos e fuso se necessário)
+                                                    clean_date = raw_date.split('.')[0].replace('T', ' ')
+                                                    dt_obj = datetime.strptime(clean_date, '%Y-%m-%d %H:%M:%S')
+                                                    dt_f = dt_obj.strftime('%d/%m/%Y %H:%M')
+                                                except Exception:
+                                                    dt_f = raw_date # Se falhar, mostra o que veio do banco
+                                            else:
+                                                dt_f = "Data Indisponível"
+                            
                                             st.write(f"⏰ **{dt_f}** | {l['detalhes']}")
-                                    else: st.write("Sem registros.")
+                                    else:
+                                        st.write("Sem registros.")
+                                    
                                     if st.button("Fechar Histórico", key=f"cls_aud_{i['id']}"):
                                         del st.session_state["view_audit_id"]
                                         st.rerun()
