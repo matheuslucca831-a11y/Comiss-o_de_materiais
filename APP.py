@@ -9,6 +9,16 @@ key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im91
 supabase = create_client(url, key)
 
 
+# Função para definir o emoji de status
+def cor(s):
+    if s == "trocar_urgente":
+        return "🔴"
+    elif s == "trocar_nao_urgente":
+        return "🟡"
+    else:
+        return "🟢"
+
+
 @st.cache_data
 def get_unidades():
     return supabase.table("unidades").select("*").execute().data
