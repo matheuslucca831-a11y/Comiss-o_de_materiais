@@ -497,11 +497,24 @@ with aba4:
                 "Status", ["satisfatorio", "trocar_nao_urgente", "trocar_urgente"],
                 index=0, key="status_item"
             )
+
             if st.button("Salvar Item", key="btn_salvar_item"):
-                # ... (lógica do material_id que já fizemos) ...
+                # Inicializamos para evitar NameError
+                material_id = None 
                 
+                # Lógica para novo material ou existente
+                if material_sel and material_sel["id"] == "outro":
+                    if not novo_material:
+                        st.warning("Digite o nome do material")
+                    else:
+                        res_mat = supabase.table("materiais").insert({"nome": novo_material.strip()}).execute()
+                        if res_mat.data:
+                            material_id = res_mat.data[0]["id"]
+                elif material_sel:
+                    material_id = material_sel["id"]
+
                 if material_id:
-                    # 1. Salva o Item
+                    # 1. Salva o Item no Inventário
                     res_item = supabase.table("itens_inventario").insert({
                         "ambiente_id": ambiente_sel["id"],
                         "material_id": material_id,
@@ -510,18 +523,27 @@ with aba4:
                         "observacao": obs_item
                     }).execute()
             
-                    # 2. Registra na AUDITORIA (Criação)
+                    # 2. Registra na AUDITORIA (Criação) com Horário de Brasília
                     if res_item.data:
                         id_novo = res_item.data[0]["id"]
-                        agora_br = formato_br() # Pega a hora de Brasília
+                        # Pegando hora de brasília via Python para o texto do log
+                        agora_br = (datetime.now() - timedelta(hours=3)).strftime('%d/%m/%Y %H:%M')
                         
                         supabase.table("historico_alteracoes").insert({
                             "item_id": id_novo,
-                            "usuario": "Sistema/Admin", # Garanta que esse nome bate com a coluna 'usuario'
-                            "detalhes": f"📦 Cadastrado em {ambiente_sel['nome']} às {agora_br}. Status: {status}"
+                            "usuario": "Admin", 
+                            "detalhes": f"📦 Item colocado no ambiente {ambiente_sel['nome']} em {agora_br}. Obs: {obs_item}"
                         }).execute()
             
                     st.success("Cadastrado com sucesso!")
+                    
+                    # --- LIMPEZA DOS CAMPOS DO FORMULÁRIO ---
+                    for key in ["item_unidade", "item_ambiente", "item_material", "novo_mat_item", "patrimonio_item", "obs_item"]:
+                        if key in st.session_state:
+                            del st.session_state[key]
+                    
+                    st.cache_data.clear()
+                    st.rerun()
     else:
         st.info("Selecione uma unidade acima para realizar um novo cadastro.")
 
@@ -557,7 +579,7 @@ with aba4:
         estrutura.setdefault(u_nome, {}).setdefault(a_nome, []).append({**item, "mat_nome": mat.get("nome")})
 
     # =========================
-    # EXIBIÇÃO HIERÁRQUICA (UNIDADE > AMBIENTE > ITEM)
+    # EXIBIÇÃO HIERÁRQUICA (Expander dentro de Expander)
     # =========================
     if not estrutura:
         st.info("Nenhum item encontrado")
@@ -565,27 +587,24 @@ with aba4:
         for unidade, ambientes_dict in estrutura.items():
             # Nível 1: Unidade
             with st.expander(f"🏥 {unidade}", expanded=False):
-                
                 for ambiente, itens_lista in ambientes_dict.items():
-                    # Nível 2: Ambiente (Dentro da Unidade)
+                    # Nível 2: Ambiente
                     with st.expander(f"📍 {ambiente}", expanded=False):
-                        
-                        # Nível 3: Itens (Dentro do Ambiente)
+                        # Nível 3: Itens
                         for i in itens_lista:
                             col_txt, col_edit, col_del, col_aud = st.columns([5,1,1,1])
-                            
                             with col_txt:
                                 st.write(f"{cor(i['status'])} **{i['mat_nome']}** | Pat: {i['patrimonio']}")
                                 if i.get("observacao"):
-                                    st.caption(f"📝 Obs: {i['observacao']}")
+                                    st.caption(f"📝 {i['observacao']}")
 
                             with col_edit:
                                 if st.button("✏️", key=f"ed_{i['id']}"):
                                     st.session_state["edit_item_id"] = i["id"]
                             
                             with col_del:
-                                if st.button("🗑️", key=f"del_item_{i['id']}"):
-                                    st.session_state["confirm_delete_item_id"] = i["id"]
+                                if st.button("🗑️", key=f"del_{i['id']}"):
+                                    st.session_state["confirm_del_id"] = i["id"]
 
                             with col_aud:
                                 if st.button("📜", key=f"aud_{i['id']}"):
