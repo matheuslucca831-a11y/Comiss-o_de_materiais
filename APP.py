@@ -92,30 +92,34 @@ with aba1:
     # -------------------------
     # CRIAR UNIDADE
     # -------------------------
-# -------------------------
-    # CRIAR UNIDADE
-    # -------------------------
-    nome_unidade = st.text_input("Nome da unidade", key="input_create_unidade")
-
-    if st.button("Criar Unidade", key="btn_create_unidade", on_click=limpar_input_unidade):
+    if "input_create_unidade" not in st.session_state:
+        st.session_state["input_create_unidade"] = ""
     
+    # Usamos o value vindo do session_state
+    nome_unidade = st.text_input("Nome da unidade", key="input_create_unidade")
+    
+    if st.button("Criar Unidade", key="btn_create_unidade"):
         if not nome_unidade:
             st.warning("Digite o nome da unidade")
         else:
+            # Verifica se existe
             existe = [u for u in unidades_data if u["nome"].lower() == nome_unidade.lower()]
     
             if existe:
                 st.warning("Unidade já existe")
             else:
+                # 1. Faz o insert primeiro (com o valor que está na variável)
                 supabase.table("unidades").insert({
                     "nome": nome_unidade
                 }).execute()
     
-                st.success("Unidade criada!")
+                # 2. Mostra o sucesso
+                st.success(f"Unidade '{nome_unidade}' criada!")
                 
-                # Aqui você NÃO precisa mais setar o session_state manualmente, 
-                # pois o on_click já fez isso no início do clique.
+                # 3. Limpa o valor no session_state ANTES do rerun
+                st.session_state["input_create_unidade"] = ""
                 
+                # 4. Limpa cache e recarrega
                 st.cache_data.clear()
                 st.rerun()
 
