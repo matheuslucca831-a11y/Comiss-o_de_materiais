@@ -17,6 +17,13 @@ import streamlit as st
 
 st.title("Cadastro")
 
+
+st.write("TESTE CONEXÃO")
+
+teste = supabase.table("ambientes").select("*").execute()
+
+st.write(teste)
+
 # =========================
 # CADASTRAR AMBIENTE
 # =========================
