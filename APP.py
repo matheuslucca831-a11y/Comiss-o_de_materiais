@@ -42,6 +42,8 @@ aba1, aba2, aba3, aba4 = st.tabs([
 with aba1:
     st.header("🏥 Unidades")
 
+    unidades_data = get_unidades()
+
     # -------------------------
     # CRIAR UNIDADE
     # -------------------------
@@ -177,6 +179,7 @@ with aba1:
 
             st.success("Atualizado!")
             del st.session_state["edit_unidade"]
+            st.cache_data.clear()
             st.rerun()
 
 with aba2:
