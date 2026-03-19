@@ -79,11 +79,67 @@ with aba1:
             if st.button("✏️", key=f"edit_{u['id']}"):
                 st.session_state["edit_unidade"] = u
 
-        # Deletar
+        # Deletar (AGORA COM CONFIRMAÇÃO)
         with col3:
             if st.button("🗑️", key=f"del_{u['id']}"):
-                supabase.table("unidades").delete().eq("id", u["id"]).execute()
-                st.success("Unidade excluída!")
+                st.session_state["confirm_delete_unidade"] = u
+
+    # -------------------------
+    # CONFIRMAÇÃO DE EXCLUSÃO
+    # -------------------------
+    if "confirm_delete_unidade" in st.session_state:
+
+        unidade = st.session_state["confirm_delete_unidade"]
+
+        st.warning(f"A unidade '{unidade['nome']}' pode ter ambientes vinculados.")
+
+        st.write("Deseja excluir a unidade e TODOS os dados relacionados?")
+
+        col1, col2 = st.columns(2)
+
+        # CONFIRMAR
+        with col1:
+            if st.button("Sim, excluir tudo"):
+
+                try:
+                    # Buscar ambientes da unidade
+                    ambientes = supabase.table("ambientes") \
+                        .select("*") \
+                        .eq("unidade_id", unidade["id"]) \
+                        .execute().data
+
+                    for amb in ambientes:
+
+                        # Deletar itens do ambiente
+                        supabase.table("itens_inventario") \
+                            .delete() \
+                            .eq("ambiente_id", amb["id"]) \
+                            .execute()
+
+                        # Deletar ambiente
+                        supabase.table("ambientes") \
+                            .delete() \
+                            .eq("id", amb["id"]) \
+                            .execute()
+
+                    # Deletar unidade
+                    supabase.table("unidades") \
+                        .delete() \
+                        .eq("id", unidade["id"]) \
+                        .execute()
+
+                    st.success("Unidade e todos os dados foram excluídos!")
+                    del st.session_state["confirm_delete_unidade"]
+                    st.rerun()
+
+                except Exception as e:
+                    st.error("Erro ao excluir:")
+                    st.write(e)
+
+        # CANCELAR
+        with col2:
+            if st.button("Cancelar"):
+                del st.session_state["confirm_delete_unidade"]
                 st.rerun()
 
     # -------------------------
@@ -108,7 +164,6 @@ with aba1:
             st.success("Atualizado!")
             del st.session_state["edit_unidade"]
             st.rerun()
-
 
 with aba2:
     st.header("🏢 Ambientes")
