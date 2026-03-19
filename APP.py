@@ -448,7 +448,7 @@ with aba4:
     )
 
     # ✅ AQUI
-    if not unidade_sel:
+    if unidade_sel is None:
         st.info("Selecione uma unidade para continuar")
         st.stop()
 
@@ -523,17 +523,13 @@ with aba4:
 
         st.success("Item cadastrado!")
         
-        # 🔥 LIMPAR CAMPOS
-        for k in [
-            "item_unidade",
-            "item_ambiente",
-            "item_material",
-            "novo_mat_item",
-            "patrimonio_item",
-            "status_item"
-        ]:
-            if k in st.session_state:
-                del st.session_state[k]
+        # 🔥 RESET COMPLETO
+        st.session_state["item_unidade"] = None
+        st.session_state["item_ambiente"] = None
+        st.session_state["item_material"] = None
+        st.session_state["novo_mat_item"] = ""
+        st.session_state["patrimonio_item"] = ""
+        st.session_state["status_item"] = "satisfatorio"
         
         st.rerun()
 
