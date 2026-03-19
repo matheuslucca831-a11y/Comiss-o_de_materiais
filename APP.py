@@ -28,6 +28,9 @@ aba1, aba2, aba3, aba4 = st.tabs([
 with aba1:
     st.header("🏥 Unidades")
 
+    # -------------------------
+    # CRIAR UNIDADE
+    # -------------------------
     nome_unidade = st.text_input("Nome da unidade")
 
     if st.button("Criar Unidade"):
@@ -44,22 +47,67 @@ with aba1:
             if existe:
                 st.warning("Unidade já existe")
             else:
-                try:
-                    resp = supabase.table("unidades").insert({
-                        "nome": nome_unidade
-                    }).execute()
+                supabase.table("unidades").insert({
+                    "nome": nome_unidade
+                }).execute()
 
-                    st.success("Unidade criada!")
-                    st.write(resp)
+                st.success("Unidade criada!")
+                st.rerun()
 
-                except Exception as e:
-                    st.error("ERRO REAL:")
-                    st.write(e)
+    # -------------------------
+    # BUSCA
+    # -------------------------
+    busca = st.text_input("🔎 Buscar unidade")
 
     unidades = supabase.table("unidades").select("*").execute().data
 
+    if busca:
+        unidades = [u for u in unidades if busca.lower() in u["nome"].lower()]
+
+    # -------------------------
+    # LISTAGEM COM AÇÕES
+    # -------------------------
     for u in unidades:
-        st.write(u["nome"])
+        col1, col2, col3 = st.columns([6,1,1])
+
+        # Nome
+        with col1:
+            st.write(u["nome"])
+
+        # Editar
+        with col2:
+            if st.button("✏️", key=f"edit_{u['id']}"):
+                st.session_state["edit_unidade"] = u
+
+        # Deletar
+        with col3:
+            if st.button("🗑️", key=f"del_{u['id']}"):
+                supabase.table("unidades").delete().eq("id", u["id"]).execute()
+                st.success("Unidade excluída!")
+                st.rerun()
+
+    # -------------------------
+    # EDITAR UNIDADE
+    # -------------------------
+    if "edit_unidade" in st.session_state:
+        st.subheader("✏️ Editar Unidade")
+
+        unidade = st.session_state["edit_unidade"]
+
+        novo_nome = st.text_input(
+            "Novo nome",
+            value=unidade["nome"]
+        )
+
+        if st.button("Salvar alteração"):
+            supabase.table("unidades") \
+                .update({"nome": novo_nome}) \
+                .eq("id", unidade["id"]) \
+                .execute()
+
+            st.success("Atualizado!")
+            del st.session_state["edit_unidade"]
+            st.rerun()
 
 
 with aba2:
