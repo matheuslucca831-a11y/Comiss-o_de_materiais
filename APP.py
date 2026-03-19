@@ -526,15 +526,14 @@ with aba4:
                     # 2. Registra na AUDITORIA (Criação) com Horário de Brasília
                     if res_item.data:
                         id_novo = res_item.data[0]["id"]
-                        # Pegando hora de brasília via Python para o texto do log
                         agora_br = (datetime.now() - timedelta(hours=3)).strftime('%d/%m/%Y %H:%M')
                         
+                        # Verifique se o nome da tabela e dos campos estão exatos
                         supabase.table("historico_alteracoes").insert({
                             "item_id": id_novo,
                             "usuario": "Admin", 
-                            "detalhes": f"📦 Item colocado no ambiente {ambiente_sel['nome']} em {agora_br}. Obs: {obs_item}"
+                            "detalhes": f"📦 Cadastrado em {ambiente_sel['nome']} às {agora_br}"
                         }).execute()
-            
                     st.success("Cadastrado com sucesso!")
                     
                     # --- LIMPEZA DOS CAMPOS DO FORMULÁRIO ---
