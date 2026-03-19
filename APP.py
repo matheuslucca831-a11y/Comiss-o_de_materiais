@@ -41,19 +41,19 @@ with aba1:
                 .eq("nome", nome_unidade) \
                 .execute().data
     
-        try:
-            resp = supabase.table("unidades").insert({
-                "nome": nome_unidade
-            }).execute()
-        
-            st.success("Unidade criada!")
-            st.write(resp)
-        
-        except Exception as e:
-            st.error("ERRO REAL:")
-            st.write(e)
-    
+            try:
+                resp = supabase.table("unidades").insert({
+                    "nome": nome_unidade
+                }).execute()
+            
                 st.success("Unidade criada!")
+                st.write(resp)
+            
+            except Exception as e:
+                st.error("ERRO REAL:")
+                st.write(e)
+        
+                    st.success("Unidade criada!")
 
     unidades = supabase.table("unidades").select("*").execute().data
 
