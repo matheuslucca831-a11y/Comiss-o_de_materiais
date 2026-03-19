@@ -168,16 +168,29 @@ with aba1:
 with aba2:
     st.header("🏢 Ambientes")
 
+    # -------------------------
+    # BUSCAR UNIDADE
+    # -------------------------
+    busca_unidade = st.text_input("🔎 Buscar unidade")
+
     unidades = supabase.table("unidades").select("*").execute().data
 
+    if busca_unidade:
+        unidades = [u for u in unidades if busca_unidade.lower() in u["nome"].lower()]
+
     if not unidades:
-        st.warning("Cadastre uma unidade primeiro")
+        st.warning("Nenhuma unidade encontrada")
     else:
         unidade_sel = st.selectbox(
             "Selecione a unidade",
             unidades,
             format_func=lambda x: x["nome"]
         )
+
+        # -------------------------
+        # CRIAR AMBIENTE
+        # -------------------------
+        st.subheader("➕ Novo Ambiente")
 
         nome_ambiente = st.text_input("Nome do ambiente")
 
@@ -187,23 +200,104 @@ with aba2:
                 st.warning("Digite o nome do ambiente")
 
             else:
-                try:
-                    supabase.table("ambientes").insert({
-                        "nome": nome_ambiente,
-                        "unidade_id": unidade_sel["id"]
-                    }).execute()
+                supabase.table("ambientes").insert({
+                    "nome": nome_ambiente,
+                    "unidade_id": unidade_sel["id"]
+                }).execute()
 
-                    st.success("Ambiente criado!")
+                st.success("Ambiente criado!")
+                st.rerun()
+
+        # -------------------------
+        # LISTAR AMBIENTES DA UNIDADE
+        # -------------------------
+        st.subheader("📋 Ambientes da unidade")
+
+        ambientes = supabase.table("ambientes") \
+            .select("*") \
+            .eq("unidade_id", unidade_sel["id"]) \
+            .execute().data
+
+        if not ambientes:
+            st.info("Nenhum ambiente cadastrado")
+        else:
+            for a in ambientes:
+                col1, col2, col3 = st.columns([6,1,1])
+
+                # Nome
+                with col1:
+                    st.write(a["nome"])
+
+                # Editar
+                with col2:
+                    if st.button("✏️", key=f"edit_amb_{a['id']}"):
+                        st.session_state["edit_ambiente"] = a
+
+                # Deletar
+                with col3:
+                    if st.button("🗑️", key=f"del_amb_{a['id']}"):
+                        st.session_state["confirm_delete_ambiente"] = a
+
+    # -------------------------
+    # CONFIRMAR EXCLUSÃO
+    # -------------------------
+    if "confirm_delete_ambiente" in st.session_state:
+
+        amb = st.session_state["confirm_delete_ambiente"]
+
+        st.warning(f"O ambiente '{amb['nome']}' será excluído com todos os itens.")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            if st.button("Sim, excluir"):
+
+                try:
+                    # deletar itens
+                    supabase.table("itens_inventario") \
+                        .delete() \
+                        .eq("ambiente_id", amb["id"]) \
+                        .execute()
+
+                    # deletar ambiente
+                    supabase.table("ambientes") \
+                        .delete() \
+                        .eq("id", amb["id"]) \
+                        .execute()
+
+                    st.success("Ambiente excluído!")
+                    del st.session_state["confirm_delete_ambiente"]
+                    st.rerun()
 
                 except Exception as e:
-                    st.error("ERRO REAL:")
+                    st.error("Erro:")
                     st.write(e)
 
-    ambientes = supabase.table("ambientes").select("*").execute().data
+        with col2:
+            if st.button("Cancelar"):
+                del st.session_state["confirm_delete_ambiente"]
+                st.rerun()
 
-    for a in ambientes:
-        st.write(a["nome"])
+    # -------------------------
+    # EDITAR AMBIENTE
+    # -------------------------
+    if "edit_ambiente" in st.session_state:
 
+        amb = st.session_state["edit_ambiente"]
+
+        st.subheader("✏️ Editar Ambiente")
+
+        novo_nome = st.text_input("Novo nome", value=amb["nome"])
+
+        if st.button("Salvar alteração"):
+            supabase.table("ambientes") \
+                .update({"nome": novo_nome}) \
+                .eq("id", amb["id"]) \
+                .execute()
+
+            st.success("Atualizado!")
+            del st.session_state["edit_ambiente"]
+            st.rerun()
 
 with aba3:
     st.header("📦 Materiais")
