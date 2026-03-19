@@ -67,20 +67,34 @@ with aba2:
 
     unidades = supabase.table("unidades").select("*").execute().data
 
-    unidade_sel = st.selectbox(
-        "Selecione a unidade",
-        unidades,
-        format_func=lambda x: x["nome"]
-    )
+    if not unidades:
+        st.warning("Cadastre uma unidade primeiro")
+    else:
+        unidade_sel = st.selectbox(
+            "Selecione a unidade",
+            unidades,
+            format_func=lambda x: x["nome"]
+        )
 
-    nome_ambiente = st.text_input("Nome do ambiente")
+        nome_ambiente = st.text_input("Nome do ambiente")
 
-    if st.button("Criar Ambiente"):
-        supabase.table("ambientes").insert({
-            "nome": nome_ambiente,
-            "unidade_id": unidade_sel["id"]
-        }).execute()
-        st.success("Ambiente criado!")
+        if st.button("Criar Ambiente"):
+
+            if not nome_ambiente:
+                st.warning("Digite o nome do ambiente")
+
+            else:
+                try:
+                    supabase.table("ambientes").insert({
+                        "nome": nome_ambiente,
+                        "unidade_id": unidade_sel["id"]
+                    }).execute()
+
+                    st.success("Ambiente criado!")
+
+                except Exception as e:
+                    st.error("ERRO REAL:")
+                    st.write(e)
 
     ambientes = supabase.table("ambientes").select("*").execute().data
 
