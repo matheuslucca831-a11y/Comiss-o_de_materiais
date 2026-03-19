@@ -613,33 +613,33 @@ with aba4:
         estrutura.setdefault(u_nome, {}).setdefault(a_nome, []).append({**item, "mat_nome": mat.get("nome", "Desconhecido")})
 
     if not estrutura:
-            st.info("Nenhum item encontrado.")
-        else:
-            # Percorremos as Unidades
-            for unidade, ambientes_dict in estrutura.items():
+        st.info("Nenhum item encontrado.")
+    else:
+        # Percorremos as Unidades
+        for unidade, ambientes_dict in estrutura.items():
+            
+            # 1. CÁLCULO DE TOTAIS DA UNIDADE
+            qtd_ambientes = len(ambientes_dict)
+            qtd_itens_total = sum(len(lista) for lista in ambientes_dict.values())
+            
+            # Título com contagem: 🏥 USF Exemplo (Ambientes: 3 | Itens: 12)
+            titulo_unidade = f"🏥 {unidade} (Ambientes: {qtd_ambientes} / Itens: {qtd_itens_total})"
+            
+            # Mudamos 'expanded=True' para 'False' para não poluir
+            with st.expander(titulo_unidade, expanded=False):
                 
-                # 1. CÁLCULO DE TOTAIS DA UNIDADE
-                qtd_ambientes = len(ambientes_dict)
-                qtd_itens_total = sum(len(lista) for lista in ambientes_dict.values())
-                
-                # Título com contagem: 🏥 USF Exemplo (Ambientes: 3 | Itens: 12)
-                titulo_unidade = f"🏥 {unidade} (Ambientes: {qtd_ambientes} / Itens: {qtd_itens_total})"
-                
-                # Mudamos 'expanded=True' para 'False' para não poluir
-                with st.expander(titulo_unidade, expanded=False):
+                # Percorremos os Ambientes desta Unidade
+                for ambiente, itens_lista in ambientes_dict.items():
                     
-                    # Percorremos os Ambientes desta Unidade
-                    for ambiente, itens_lista in ambientes_dict.items():
-                        
-                        # 2. CÁLCULO DE ITENS DO AMBIENTE
-                        qtd_itens_amb = len(itens_lista)
-                        
-                        # Título do Ambiente: 📍 Consultório 1 (Itens: 5)
-                        titulo_ambiente = f"📍 {ambiente} ({qtd_itens_amb} itens)"
-                        
-                        with st.expander(titulo_ambiente, expanded=False):
-                            for i in itens_lista:
-                            # --- O resto do seu código de botões (Editar, Deletar, Histórico) entra aqui ---
+                    # 2. CÁLCULO DE ITENS DO AMBIENTE
+                    qtd_itens_amb = len(itens_lista)
+                    
+                    # Título do Ambiente: 📍 Consultório 1 (Itens: 5)
+                    titulo_ambiente = f"📍 {ambiente} ({qtd_itens_amb} itens)"
+                    
+                    with st.expander(titulo_ambiente, expanded=False):
+                        for i in itens_lista:
+                        # --- O resto do seu código de botões (Editar, Deletar, Histórico) entra aqui ---
                             item_container = st.container()
                             
                             col_txt, col_edit, col_del, col_aud = item_container.columns([5,1,1,1])
