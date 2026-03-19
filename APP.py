@@ -530,15 +530,22 @@ with aba4:
         }).execute()
 
         st.success("Item cadastrado com sucesso!")
-        # 🔥 A SOLUÇÃO: Deletar as chaves do estado para resetar os selectboxes
-        # Isso limpa o cache interno do widget e força o index=None
-        chaves_para_resetar = ["item_unidade", "item_ambiente", "item_material", "patrimonio_item"]
+        # 🔥 A SOLUÇÃO DEFINITIVA PARA LIMPAR TUDO:
+        chaves_para_limpar = [
+            "item_unidade", 
+            "item_ambiente", 
+            "item_material", 
+            "novo_mat_item", 
+            "patrimonio_item", 
+            "status_item"
+        ]
         
-        for chave in chaves_para_resetar:
+        for chave in chaves_para_limpar:
             if chave in st.session_state:
-                del st.session_state[chave]
-
-        # Agora sim, o rerun vai ler os componentes como se fosse a primeira vez
+                st.session_state[chave] = None # Primeiro setamos como None
+                # Opcional: del st.session_state[chave] # Depois deletamos
+        
+        # Garante que o fluxo não pare em nenhum st.stop() antes de recarregar
         st.rerun()
 
     # =========================
