@@ -74,11 +74,11 @@ def get_itens():
 
 
 aba1, aba2, aba3, aba4, aba5 = st.tabs([
-    "Unidades",
-    "Ambientes",
-    "Editar Materiais",
-    "Controle de Materiais"
-    "Relatórios" 
+    "Unidades", 
+    "Ambientes", 
+    "Editar Materiais", 
+    "Controle de Materiais",
+    "📊 Relatórios"
 ])
 
 
