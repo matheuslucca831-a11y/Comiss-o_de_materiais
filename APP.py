@@ -621,11 +621,7 @@ else:
                     
                         with col3:
                             if st.button("🗑️", key=f"del_item_{i['id']}"):
-                                st.session_state["confirm_delete_item"] = {
-                                    "item": i,
-                                    "ambiente": ambiente,
-                                    "unidade": unidade
-                                }
+                                st.session_state["confirm_delete_item_id"] = i["id"]
                     
                         # 🔥 EDITAR DENTRO DO AMBIENTE
                         if "edit_item" in st.session_state and st.session_state["edit_item"]["item"]["id"] == i["id"]:
@@ -669,31 +665,29 @@ else:
                                     st.rerun()
                     
                         # 🔥 DELETE DENTRO DO AMBIENTE
-                        if "confirm_delete_item" in st.session_state and st.session_state["confirm_delete_item"]["item"]["id"] == i["id"]:
-                    
-                            item = st.session_state["confirm_delete_item"]["item"]
-                    
+                        if st.session_state.get("confirm_delete_item_id") == i["id"]:
+                        
                             st.warning("Excluir este item?")
-                    
+                        
                             col_a, col_b = st.columns(2)
-                    
+                        
                             with col_a:
-                                if st.button("Sim", key=f"del_yes_{item['id']}"):
-                    
+                                if st.button("Sim", key=f"del_yes_{i['id']}"):
+                        
                                     supabase.table("itens_inventario") \
                                         .delete() \
-                                        .eq("id", item["id"]) \
+                                        .eq("id", i["id"]) \
                                         .execute()
-                    
+                        
                                     st.success("Excluído!")
-                                    del st.session_state["confirm_delete_item"]
+                                    del st.session_state["confirm_delete_item_id"]
                                     st.rerun()
-                    
+                        
                             with col_b:
-                                if st.button("Não", key=f"del_no_{item['id']}"):
-                                    del st.session_state["confirm_delete_item"]
+                                if st.button("Não", key=f"del_no_{i['id']}"):
+                                    del st.session_state["confirm_delete_item_id"]
                                     st.rerun()
-                    
+                                                
                     if "confirm_delete_item" in st.session_state:
                     
                         item = st.session_state["confirm_delete_item"]
