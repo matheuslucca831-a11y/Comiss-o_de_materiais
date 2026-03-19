@@ -548,65 +548,98 @@ with aba4:
         u_nome, a_nome = uni.get("nome", "Sem unidade"), amb.get("nome", "Sem ambiente")
         estrutura.setdefault(u_nome, {}).setdefault(a_nome, []).append({**item, "mat_nome": mat.get("nome")})
 
-    # EXIBIÇÃO
+    # =========================
+    # EXIBIÇÃO HIERÁRQUICA (CORRIGIDA)
+    # =========================
     if not estrutura:
         st.info("Nenhum item encontrado")
     else:
-        for unidade, ambientes in estrutura.items():
-            with st.expander(f"🏥 {unidade}", expanded=True):
-                for ambiente, itens_lista in ambientes.items():
-                    st.markdown(f"#### 📍 {ambiente}")
-                    for i in itens_lista:
-                        col_txt, col_edit, col_del, col_aud = st.columns([5,1,1,1])
+        # 1. Primeiro Nível: UNIDADES
+        for unidade, ambientes_dict in estrutura.items():
+            with st.expander(f"🏥 {unidade}", expanded=False): # Começa fechado para organizar
+                
+                # 2. Segundo Nível: AMBIENTES
+                for ambiente, itens_lista in ambientes_dict.items():
+                    with st.expander(f"📍 {ambiente}", expanded=False):
                         
-                        with col_txt:
-                            st.write(f"{cor(i['status'])} **{i['mat_nome']}** | Pat: {i['patrimonio']}")
-                            if i.get("observacao"):
-                                st.caption(f"📝 Obs: {i['observacao']}")
+                        # 3. Terceiro Nível: ITENS
+                        for i in itens_lista:
+                            col_txt, col_edit, col_del, col_aud = st.columns([5,1,1,1])
+                            
+                            with col_txt:
+                                st.write(f"{cor(i['status'])} **{i['mat_nome']}** | Pat: {i['patrimonio']}")
+                                if i.get("observacao"):
+                                    st.caption(f"📝 Obs: {i['observacao']}")
 
-                        with col_edit:
-                            if st.button("✏️", key=f"ed_{i['id']}"):
-                                st.session_state["edit_item_id"] = i["id"]
-                        
-                        with col_aud:
-                            if st.button("📜", key=f"aud_{i['id']}"):
-                                st.session_state["view_audit_id"] = i["id"]
+                            with col_edit:
+                                if st.button("✏️", key=f"ed_{i['id']}"):
+                                    st.session_state["edit_item_id"] = i["id"]
+                            
+                            with col_del: # Adicionei o botão de deletar que faltava na lógica anterior
+                                if st.button("🗑️", key=f"del_item_{i['id']}"):
+                                    st.session_state["confirm_delete_item_id"] = i["id"]
 
-                        # --- MODAL DE AUDITORIA ---
-                        if st.session_state.get("view_audit_id") == i["id"]:
-                            st.info(f"Histórico de: {i['mat_nome']}")
-                            logs = supabase.table("historico_alteracoes").select("*").eq("item_id", i["id"]).order("data_alteracao", desc=True).execute().data
-                            if not logs: st.write("Nenhuma alteração registrada.")
-                            for l in logs:
-                                st.write(f"⏰ {l['data_alteracao'][:16]} | {l['detalhes']}")
-                            if st.button("Fechar Histórico", key=f"close_aud_{i['id']}"):
-                                del st.session_state["view_audit_id"]
-                                st.rerun()
+                            with col_aud:
+                                if st.button("📜", key=f"aud_{i['id']}"):
+                                    st.session_state["view_audit_id"] = i["id"]
 
-                        # --- LOGICA DE EDIÇÃO (COM REGISTRO DE AUDITORIA) ---
-                        if st.session_state.get("edit_item_id") == i["id"]:
-                            with st.container(border=True):
-                                n_pat = st.text_input("Novo Patrimônio", value=i["patrimonio"], key=f"p_{i['id']}")
-                                n_obs = st.text_input("Nova Obs", value=i.get("observacao", ""), key=f"o_{i['id']}")
-                                n_sta = st.selectbox("Novo Status", ["satisfatorio", "trocar_nao_urgente", "trocar_urgente"], 
-                                                   index=["satisfatorio", "trocar_nao_urgente", "trocar_urgente"].index(i["status"]), key=f"s_{i['id']}")
-                                
-                                if st.button("Salvar Alterações", key=f"save_ed_{i['id']}"):
-                                    # 1. SALVA NA TABELA DE AUDITORIA
-                                    detalhes = f"Alterou Status de {i['status']} para {n_sta}. Obs: {n_obs}"
-                                    supabase.table("historico_alteracoes").insert({
-                                        "item_id": i["id"],
-                                        "usuario": "Usuário Logado", # Aqui você pode usar o nome do Matheus
-                                        "detalhes": detalhes
-                                    }).execute()
+                            # --- MODAL DE AUDITORIA (Dentro do item) ---
+                            if st.session_state.get("view_audit_id") == i["id"]:
+                                with st.container(border=True):
+                                    st.info(f"Histórico de: {i['mat_nome']}")
+                                    logs = supabase.table("historico_alteracoes").select("*").eq("item_id", i["id"]).order("data_alteracao", desc=True).execute().data
+                                    if not logs: 
+                                        st.write("Nenhuma alteração registrada.")
+                                    for l in logs:
+                                        # Formata a data para ficar mais bonita
+                                        data_f = l['data_alteracao'].replace('T', ' ')[:16]
+                                        st.write(f"⏰ {data_f} | {l['detalhes']}")
+                                    
+                                    if st.button("Fechar Histórico", key=f"close_aud_{i['id']}"):
+                                        del st.session_state["view_audit_id"]
+                                        st.rerun()
 
-                                    # 2. ATUALIZA O ITEM
-                                    supabase.table("itens_inventario").update({
-                                        "patrimonio": n_pat, "status": n_sta, "observacao": n_obs
-                                    }).eq("id", i["id"]).execute()
-
-                                    st.success("Atualizado!")
+                            # --- LOGICA DE EDIÇÃO ---
+                            if st.session_state.get("edit_item_id") == i["id"]:
+                                with st.container(border=True):
+                                    st.markdown("### ✏️ Editar")
+                                    n_pat = st.text_input("Novo Patrimônio", value=i["patrimonio"], key=f"p_{i['id']}")
+                                    n_obs = st.text_input("Nova Obs", value=i.get("observacao", ""), key=f"o_{i['id']}")
+                                    n_sta = st.selectbox("Novo Status", ["satisfatorio", "trocar_nao_urgente", "trocar_urgente"], 
+                                                       index=["satisfatorio", "trocar_nao_urgente", "trocar_urgente"].index(i["status"]), key=f"s_{i['id']}")
+                                    
+                                    c1, c2 = st.columns(2)
+                                    with c1:
+                                        if st.button("Salvar", key=f"save_ed_{i['id']}"):
+                                            # Auditoria
+                                            detalhes = f"Alterou Status: {i['status']} -> {n_sta}. Obs: {n_obs}"
+                                            supabase.table("historico_alteracoes").insert({
+                                                "item_id": i["id"],
+                                                "usuario": "Admin", # Pode mudar pelo seu nome dps
+                                                "detalhes": detalhes
+                                            }).execute()
+                                            # Update
+                                            supabase.table("itens_inventario").update({
+                                                "patrimonio": n_pat, "status": n_sta, "observacao": n_obs
+                                            }).eq("id", i["id"]).execute()
+                                            
+                                            st.cache_data.clear()
+                                            del st.session_state["edit_item_id"]
+                                            st.rerun()
+                                    with c2:
+                                        if st.button("Cancelar", key=f"cancel_ed_{i['id']}"):
+                                            del st.session_state["edit_item_id"]
+                                            st.rerun()
+                            
+                            # --- LOGICA DE EXCLUSÃO ---
+                            if st.session_state.get("confirm_delete_item_id") == i["id"]:
+                                st.error(f"Confirmar exclusão de {i['mat_nome']}?")
+                                if st.button("Confirmar Exclusão", key=f"btn_confirm_del_{i['id']}"):
+                                    supabase.table("itens_inventario").delete().eq("id", i["id"]).execute()
                                     st.cache_data.clear()
-                                    del st.session_state["edit_item_id"]
+                                    del st.session_state["confirm_delete_item_id"]
+                                    st.rerun()
+                                if st.button("Desistir", key=f"btn_cancel_del_{i['id']}"):
+                                    del st.session_state["confirm_delete_item_id"]
                                     st.rerun()
 
