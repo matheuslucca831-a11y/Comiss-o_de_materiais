@@ -31,29 +31,30 @@ with aba1:
     nome_unidade = st.text_input("Nome da unidade")
 
     if st.button("Criar Unidade"):
-    
+
         if not nome_unidade:
             st.warning("Digite o nome da unidade")
-    
+
         else:
             existe = supabase.table("unidades") \
                 .select("*") \
                 .eq("nome", nome_unidade) \
                 .execute().data
-    
-            try:
-                resp = supabase.table("unidades").insert({
-                    "nome": nome_unidade
-                }).execute()
-            
-                st.success("Unidade criada!")
-                st.write(resp)
-            
-            except Exception as e:
-                st.error("ERRO REAL:")
-                st.write(e)
-        
+
+            if existe:
+                st.warning("Unidade já existe")
+            else:
+                try:
+                    resp = supabase.table("unidades").insert({
+                        "nome": nome_unidade
+                    }).execute()
+
                     st.success("Unidade criada!")
+                    st.write(resp)
+
+                except Exception as e:
+                    st.error("ERRO REAL:")
+                    st.write(e)
 
     unidades = supabase.table("unidades").select("*").execute().data
 
