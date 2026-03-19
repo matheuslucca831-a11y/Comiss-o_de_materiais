@@ -435,47 +435,36 @@ with aba3:
 with aba4:
     st.header("📋 Controle de materiais")
 
-    # 1. BUSCA DE DADOS (Sempre roda)
-    unidades = supabase.table("unidades").select("*").execute().data
-    materiais = supabase.table("materiais").select("*").execute().data
+    # USANDO CACHE PARA VELOCIDADE MÁXIMA
+    unidades = get_unidades()
+    materiais_db = get_materiais() # Supondo que você criou essa função cacheada
+    ambientes_all = get_ambientes()
+    itens_all = get_itens() # Crie uma função get_itens() com @st.cache_data
 
     # =========================
-    # ÁREA DE CADASTRO (Lógica de Escada)
+    # ÁREA DE CADASTRO
     # =========================
     st.subheader("➕ Cadastrar Item")
 
     unidade_sel = st.selectbox(
-        "Unidade",
-        unidades,
-        format_func=lambda x: x["nome"],
-        index=None,
-        placeholder="Selecione a unidade...",
-        key="item_unidade"
+        "Unidade", unidades, format_func=lambda x: x["nome"],
+        index=None, placeholder="Selecione a unidade...", key="item_unidade"
     )
 
-    # Em vez de st.stop(), usamos IF para mostrar os campos seguintes
     if unidade_sel:
-        ambientes = supabase.table("ambientes").select("*").eq("unidade_id", unidade_sel["id"]).execute().data
-
+        # Filtra ambientes da unidade em memória
+        ambientes_f = [a for a in ambientes_all if a["unidade_id"] == unidade_sel["id"]]
+        
         ambiente_sel = st.selectbox(
-            "Ambiente",
-            ambientes,
-            format_func=lambda x: x["nome"],
-            index=None,
-            placeholder="Selecione o ambiente...",
-            key="item_ambiente"
+            "Ambiente", ambientes_f, format_func=lambda x: x["nome"],
+            index=None, placeholder="Selecione o ambiente...", key="item_ambiente"
         )
 
         if ambiente_sel:
-            # MATERIAL
-            lista_materiais = materiais + [{"id": "outro", "nome": "Outro..."}]
+            lista_materiais = materiais_db + [{"id": "outro", "nome": "Outro..."}]
             material_sel = st.selectbox(
-                "Material",
-                lista_materiais,
-                format_func=lambda x: x["nome"],
-                index=None,
-                placeholder="Selecione o material...",
-                key="item_material"
+                "Material", lista_materiais, format_func=lambda x: x["nome"],
+                index=None, placeholder="Selecione o material...", key="item_material"
             )
 
             novo_material = None
@@ -483,17 +472,16 @@ with aba4:
                 novo_material = st.text_input("Nome do novo material", key="novo_mat_item")
 
             patrimonio = st.text_input("Patrimônio", key="patrimonio_item")
+            
+            # --- NOVO CAMPO: OBSERVAÇÃO ---
+            obs_item = st.text_area("Observações (Ex: Marca, cor, defeitos)", key="obs_item")
 
             status = st.selectbox(
-                "Status",
-                ["satisfatorio", "trocar_nao_urgente", "trocar_urgente"],
-                index=0,
-                key="status_item"
+                "Status", ["satisfatorio", "trocar_nao_urgente", "trocar_urgente"],
+                index=0, key="status_item"
             )
 
-            # BOTÃO SALVAR
             if st.button("Salvar Item", key="btn_salvar_item"):
-                # ... (Sua lógica de inserção no Supabase continua igual) ...
                 material_id = None
                 if material_sel["id"] == "outro":
                     if not novo_material:
@@ -509,225 +497,106 @@ with aba4:
                         "ambiente_id": ambiente_sel["id"],
                         "material_id": material_id,
                         "patrimonio": patrimonio,
-                        "status": status
+                        "status": status,
+                        "observacao": obs_item # SALVANDO OBSERVAÇÃO
                     }).execute()
 
-                    st.success("Item cadastrado com sucesso!")
-                    
-                    # RESET MANUAL
-                    chaves_para_resetar = ["item_unidade", "item_ambiente", "item_material", "novo_mat_item", "patrimonio_item", "status_item"]
-                    for chave in chaves_para_resetar:
-                        if chave in st.session_state:
-                            del st.session_state[chave]
+                    st.success("Item cadastrado!")
+                    st.cache_data.clear() # Limpa tudo para atualizar a lista
                     st.rerun()
     else:
-        # Mensagem amigável enquanto não seleciona nada no cadastro
         st.info("Selecione uma unidade acima para realizar um novo cadastro.")
 
-    # =================================================================
-    # ÁREA DE CONSULTA (AGORA ELA SEMPRE APARECE PORQUE NÃO TEM ST.STOP)
-    # =================================================================
-    st.markdown("---") # Linha divisória
-    st.subheader("🔎 Consulta de Itens")
+    st.markdown("---")
+    st.subheader("🔎 Consulta e Auditoria")
     
+    # Filtros de consulta (mantidos como você fez)
     col1, col2, col3 = st.columns(3)
-    
     with col1:
-        f_unidade = st.selectbox(
-            "Filtrar Unidade",
-            ["Todas"] + [u["nome"] for u in unidades],
-            key="filtro_unidade_tree"
-        )
-    
+        f_unidade = st.selectbox("Filtrar Unidade", ["Todas"] + [u["nome"] for u in unidades], key="f_uni_tree")
     with col2:
-        f_material = st.text_input("Material", key="filtro_material_tree")
-    
+        f_material = st.text_input("Material", key="f_mat_tree")
     with col3:
-        f_status = st.selectbox(
-            "Status",
-            ["Todos", "satisfatorio", "trocar_nao_urgente", "trocar_urgente"],
-            key="filtro_status_tree"
-        )
-    
-    # =========================
-    # CARREGAR DADOS
-    # =========================
-    ambientes = supabase.table("ambientes").select("*").execute().data
-    materiais = supabase.table("materiais").select("*").execute().data
-    itens = supabase.table("itens_inventario").select("*").execute().data
-    
-    dict_amb = {a["id"]: a for a in ambientes}
-    dict_mat = {m["id"]: m for m in materiais}
+        f_status = st.selectbox("Status", ["Todos", "satisfatorio", "trocar_nao_urgente", "trocar_urgente"], key="f_sta_tree")
+
+    # Mapeamento para exibição rápida
+    dict_amb = {a["id"]: a for a in ambientes_all}
+    dict_mat = {m["id"]: m for m in materiais_db}
     dict_uni = {u["id"]: u for u in unidades}
-    
-    # =========================
-    # ORGANIZAR HIERARQUIA
-    # =========================
+
+    # Organização da estrutura (Hierarquia)
     estrutura = {}
-    
-    for item in itens:
+    for item in itens_all:
         amb = dict_amb.get(item["ambiente_id"], {})
         mat = dict_mat.get(item["material_id"], {})
         uni = dict_uni.get(amb.get("unidade_id"), {})
-    
-        # FILTROS
-        if f_unidade != "Todas" and uni.get("nome") != f_unidade:
-            continue
-    
-        if f_material and f_material.lower() not in mat.get("nome", "").lower():
-            continue
-    
-        if f_status != "Todos" and item["status"] != f_status:
-            continue
-    
-        unidade_nome = uni.get("nome", "Sem unidade")
-        ambiente_nome = amb.get("nome", "Sem ambiente")
-    
-        estrutura.setdefault(unidade_nome, {})
-        estrutura[unidade_nome].setdefault(ambiente_nome, [])
-        estrutura[unidade_nome][ambiente_nome].append({
-            "id": item["id"],
-            "material": mat.get("nome"),
-            "patrimonio": item["patrimonio"],
-            "status": item["status"]
-        })
-    
-    # =========================
-    # CORES
-    # =========================
-    def cor(s):
-        if s == "trocar_urgente":
-            return "🔴"
-        elif s == "trocar_nao_urgente":
-            return "🟡"
-        else:
-            return "🟢"
-    
-    # =========================
-    # EXIBIÇÃO HIERÁRQUICA
-    # =========================
+
+        if f_unidade != "Todas" and uni.get("nome") != f_unidade: continue
+        if f_material and f_material.lower() not in mat.get("nome", "").lower(): continue
+        if f_status != "Todos" and item["status"] != f_status: continue
+
+        u_nome, a_nome = uni.get("nome", "Sem unidade"), amb.get("nome", "Sem ambiente")
+        estrutura.setdefault(u_nome, {}).setdefault(a_nome, []).append({**item, "mat_nome": mat.get("nome")})
+
+    # EXIBIÇÃO
     if not estrutura:
         st.info("Nenhum item encontrado")
     else:
         for unidade, ambientes in estrutura.items():
-    
             with st.expander(f"🏥 {unidade}", expanded=True):
-    
                 for ambiente, itens_lista in ambientes.items():
-    
-                    with st.expander(f"📍 {ambiente}", expanded=False):
-    
-                        for i in itens_lista:
-                            col1, col2, col3 = st.columns([6,1,1])
+                    st.markdown(f"#### 📍 {ambiente}")
+                    for i in itens_lista:
+                        col_txt, col_edit, col_del, col_aud = st.columns([5,1,1,1])
                         
-                            with col1:
-                                st.write(
-                                    cor(i["status"]),
-                                    i["material"],
-                                    "| Patrimônio:",
-                                    i["patrimonio"]
-                                )
-                        
-                            with col2:
-                                if st.button("✏️", key=f"edit_item_{i['id']}"):
-                                    st.session_state["edit_item"] = {
-                                        "item": i,
-                                        "ambiente": ambiente,
-                                        "unidade": unidade
-                                    }
-                        
-                            with col3:
-                                if st.button("🗑️", key=f"del_item_{i['id']}"):
-                                    st.session_state["confirm_delete_item_id"] = i["id"]
-                        
-                            # 🔥 EDITAR DENTRO DO AMBIENTE
-                            if "edit_item" in st.session_state and st.session_state["edit_item"]["item"]["id"] == i["id"]:
-                        
-                                item = st.session_state["edit_item"]["item"]
-                        
-                                st.markdown("**✏️ Editando item:**")
-                        
-                                novo_patrimonio = st.text_input(
-                                    "Patrimônio",
-                                    value=item["patrimonio"],
-                                    key=f"edit_p_{item['id']}"
-                                )
-                        
-                                novo_status = st.selectbox(
-                                    "Status",
-                                    ["satisfatorio", "trocar_nao_urgente", "trocar_urgente"],
-                                    index=["satisfatorio", "trocar_nao_urgente", "trocar_urgente"].index(item["status"]),
-                                    key=f"edit_s_{item['id']}"
-                                )
-                        
-                                col_a, col_b = st.columns(2)
-                        
-                                with col_a:
-                                    if st.button("Salvar", key=f"save_{item['id']}"):
-                                        supabase.table("itens_inventario") \
-                                            .update({
-                                                "patrimonio": novo_patrimonio,
-                                                "status": novo_status
-                                            }) \
-                                            .eq("id", item["id"]) \
-                                            .execute()
-                        
-                                        st.success("Atualizado!")
-                                        del st.session_state["edit_item"]
-                                        st.rerun()
-                        
-                                with col_b:
-                                    if st.button("Cancelar", key=f"cancel_{item['id']}"):
-                                        del st.session_state["edit_item"]
-                                        st.rerun()
-                        
-                            # 🔥 DELETE DENTRO DO AMBIENTE
-                            if st.session_state.get("confirm_delete_item_id") == i["id"]:
-                            
-                                st.warning("Excluir este item?")
-                            
-                                col_a, col_b = st.columns(2)
-                            
-                                with col_a:
-                                    if st.button("Sim", key=f"del_yes_{i['id']}"):
-                            
-                                        supabase.table("itens_inventario") \
-                                            .delete() \
-                                            .eq("id", i["id"]) \
-                                            .execute()
-                            
-                                        st.success("Excluído!")
-                                        del st.session_state["confirm_delete_item_id"]
-                                        st.rerun()
-                            
-                                with col_b:
-                                    if st.button("Não", key=f"del_no_{i['id']}"):
-                                        del st.session_state["confirm_delete_item_id"]
-                                        st.rerun()
-                                                    
-                        if "confirm_delete_item" in st.session_state:
-                        
-                            item = st.session_state["confirm_delete_item"]
-                        
-                            st.warning("Deseja excluir este item?")
-                        
-                            col1, col2 = st.columns(2)
-                        
-                            with col1:
-                                if st.button("Sim, excluir", key="conf_del_item"):
-                        
-                                    supabase.table("itens_inventario") \
-                                        .delete() \
-                                        .eq("id", item["id"]) \
-                                        .execute()
-                        
-                                    st.success("Item excluído!")
-                                    del st.session_state["confirm_delete_item"]
-                                    st.rerun()
-                        
-                            with col2:
-                                if st.button("Cancelar", key="cancel_del_item"):
-                                    del st.session_state["confirm_delete_item"]
-                                    st.rerun()
+                        with col_txt:
+                            st.write(f"{cor(i['status'])} **{i['mat_nome']}** | Pat: {i['patrimonio']}")
+                            if i.get("observacao"):
+                                st.caption(f"📝 Obs: {i['observacao']}")
 
+                        with col_edit:
+                            if st.button("✏️", key=f"ed_{i['id']}"):
+                                st.session_state["edit_item_id"] = i["id"]
+                        
+                        with col_aud:
+                            if st.button("📜", key=f"aud_{i['id']}"):
+                                st.session_state["view_audit_id"] = i["id"]
+
+                        # --- MODAL DE AUDITORIA ---
+                        if st.session_state.get("view_audit_id") == i["id"]:
+                            st.info(f"Histórico de: {i['mat_nome']}")
+                            logs = supabase.table("historico_alteracoes").select("*").eq("item_id", i["id"]).order("data_alteracao", desc=True).execute().data
+                            if not logs: st.write("Nenhuma alteração registrada.")
+                            for l in logs:
+                                st.write(f"⏰ {l['data_alteracao'][:16]} | {l['detalhes']}")
+                            if st.button("Fechar Histórico", key=f"close_aud_{i['id']}"):
+                                del st.session_state["view_audit_id"]
+                                st.rerun()
+
+                        # --- LOGICA DE EDIÇÃO (COM REGISTRO DE AUDITORIA) ---
+                        if st.session_state.get("edit_item_id") == i["id"]:
+                            with st.container(border=True):
+                                n_pat = st.text_input("Novo Patrimônio", value=i["patrimonio"], key=f"p_{i['id']}")
+                                n_obs = st.text_input("Nova Obs", value=i.get("observacao", ""), key=f"o_{i['id']}")
+                                n_sta = st.selectbox("Novo Status", ["satisfatorio", "trocar_nao_urgente", "trocar_urgente"], 
+                                                   index=["satisfatorio", "trocar_nao_urgente", "trocar_urgente"].index(i["status"]), key=f"s_{i['id']}")
+                                
+                                if st.button("Salvar Alterações", key=f"save_ed_{i['id']}"):
+                                    # 1. SALVA NA TABELA DE AUDITORIA
+                                    detalhes = f"Alterou Status de {i['status']} para {n_sta}. Obs: {n_obs}"
+                                    supabase.table("historico_alteracoes").insert({
+                                        "item_id": i["id"],
+                                        "usuario": "Usuário Logado", # Aqui você pode usar o nome do Matheus
+                                        "detalhes": detalhes
+                                    }).execute()
+
+                                    # 2. ATUALIZA O ITEM
+                                    supabase.table("itens_inventario").update({
+                                        "patrimonio": n_pat, "status": n_sta, "observacao": n_obs
+                                    }).eq("id", i["id"]).execute()
+
+                                    st.success("Atualizado!")
+                                    st.cache_data.clear()
+                                    del st.session_state["edit_item_id"]
+                                    st.rerun()
 
