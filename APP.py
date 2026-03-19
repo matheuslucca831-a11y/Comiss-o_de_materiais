@@ -9,7 +9,21 @@ key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im91
 supabase = create_client(url, key)
 
 
+@st.cache_data
+def get_unidades():
+    return supabase.table("unidades").select("*").execute().data
 
+@st.cache_data
+def get_ambientes():
+    return supabase.table("ambientes").select("*").execute().data
+
+@st.cache_data
+def get_materiais():
+    return supabase.table("materiais").select("*").execute().data
+
+@st.cache_data
+def get_itens():
+    return supabase.table("itens_inventario").select("*").execute().data
 
 
 
