@@ -73,11 +73,12 @@ def get_itens():
 
 
 
-aba1, aba2, aba3, aba4 = st.tabs([
+aba1, aba2, aba3, aba4, aba5 = st.tabs([
     "Unidades",
     "Ambientes",
     "Editar Materiais",
     "Controle de Materiais"
+    "Relatórios" 
 ])
 
 
@@ -703,72 +704,71 @@ with aba4:
                                     if st.button("Desistir", key=f"n_del_{i['id']}"):
                                         del st.session_state["confirm_delete_item_id"]
                                         st.rerun()
-
-st.markdown("---")
-st.subheader("📊 Relatórios")
-
-if estrutura:
-    # 1. Preparar os dados para o Excel
-    dados_excel = []
+with aba5:
+    st.subheader("📊 Relatórios")
     
-    for unidade, ambientes_dict in estrutura.items():
-        # Linha da Unidade
-        dados_excel.append({
-            "Hierarquia": f"🏥 UNIDADE: {unidade.upper()}", 
-            "Status": "", 
-            "Patrimônio": "", 
-            "Observação": ""
-        })
+    if estrutura:
+        # 1. Preparar os dados para o Excel
+        dados_excel = []
         
-        for ambiente, itens_lista in ambientes_dict.items():
-            # Linha do Ambiente
+        for unidade, ambientes_dict in estrutura.items():
+            # Linha da Unidade
             dados_excel.append({
-                "Hierarquia": f"  📍 {ambiente}", 
+                "Hierarquia": f"🏥 UNIDADE: {unidade.upper()}", 
                 "Status": "", 
                 "Patrimônio": "", 
                 "Observação": ""
             })
             
-            for i in itens_lista:
-                # Linha do Item
+            for ambiente, itens_lista in ambientes_dict.items():
+                # Linha do Ambiente
                 dados_excel.append({
-                    "Hierarquia": f"      - {i['mat_nome']}",
-                    "Status": i['status'],
-                    "Patrimônio": i['patrimonio'],
-                    "Observação": i.get('observacao', '')
+                    "Hierarquia": f"  📍 {ambiente}", 
+                    "Status": "", 
+                    "Patrimônio": "", 
+                    "Observação": ""
                 })
+                
+                for i in itens_lista:
+                    # Linha do Item
+                    dados_excel.append({
+                        "Hierarquia": f"      - {i['mat_nome']}",
+                        "Status": i['status'],
+                        "Patrimônio": i['patrimonio'],
+                        "Observação": i.get('observacao', '')
+                    })
+        
+        df_export = pd.DataFrame(dados_excel)
     
-    df_export = pd.DataFrame(dados_excel)
-
-    # 2. Criar o arquivo Excel em memória
-    buffer = io.BytesIO()
-    with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-        df_export.to_excel(writer, index=False, sheet_name='Inventario')
-        
-        workbook  = writer.book
-        worksheet = writer.sheets['Inventario']
-
-        # Formatos visuais
-        fmt_unidade = workbook.add_format({'bold': True, 'bg_color': '#D7E4BC', 'border': 1})
-        fmt_ambiente = workbook.add_format({'bold': True, 'bg_color': '#EAF1DD', 'italic': True})
-        
-        # Ajustar largura das colunas
-        worksheet.set_column('A:A', 50)
-        worksheet.set_column('B:D', 20)
-
-        # Aplicar formatação nas linhas (começa em 1 porque 0 é o cabeçalho)
-        for row_num, data in enumerate(dados_excel):
-            if "🏥 UNIDADE:" in data["Hierarquia"]:
-                worksheet.set_row(row_num + 1, None, fmt_unidade)
-            elif "📍" in data["Hierarquia"]:
-                worksheet.set_row(row_num + 1, None, fmt_ambiente)
-
-    # 3. Botão de Download (O segredo é o buffer.getvalue())
-    st.download_button(
-        label="📥 Baixar Inventário Atualizado (Excel)",
-        data=buffer.getvalue(),
-        file_name=f"Inventario_USF_{datetime.now().strftime('%d_%m_%Y')}.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-else:
-    st.warning("Não há dados filtrados para exportar.")
+        # 2. Criar o arquivo Excel em memória
+        buffer = io.BytesIO()
+        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+            df_export.to_excel(writer, index=False, sheet_name='Inventario')
+            
+            workbook  = writer.book
+            worksheet = writer.sheets['Inventario']
+    
+            # Formatos visuais
+            fmt_unidade = workbook.add_format({'bold': True, 'bg_color': '#D7E4BC', 'border': 1})
+            fmt_ambiente = workbook.add_format({'bold': True, 'bg_color': '#EAF1DD', 'italic': True})
+            
+            # Ajustar largura das colunas
+            worksheet.set_column('A:A', 50)
+            worksheet.set_column('B:D', 20)
+    
+            # Aplicar formatação nas linhas (começa em 1 porque 0 é o cabeçalho)
+            for row_num, data in enumerate(dados_excel):
+                if "🏥 UNIDADE:" in data["Hierarquia"]:
+                    worksheet.set_row(row_num + 1, None, fmt_unidade)
+                elif "📍" in data["Hierarquia"]:
+                    worksheet.set_row(row_num + 1, None, fmt_ambiente)
+    
+        # 3. Botão de Download (O segredo é o buffer.getvalue())
+        st.download_button(
+            label="📥 Baixar Inventário Atualizado (Excel)",
+            data=buffer.getvalue(),
+            file_name=f"Inventario_USF_{datetime.now().strftime('%d_%m_%Y')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+    else:
+        st.warning("Não há dados filtrados para exportar.")
