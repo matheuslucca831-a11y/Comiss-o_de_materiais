@@ -41,12 +41,17 @@ with aba1:
                 .eq("nome", nome_unidade) \
                 .execute().data
     
-            if existe:
-                st.warning("Unidade já existe")
-            else:
-                supabase.table("unidades").insert({
-                    "nome": nome_unidade
-                }).execute()
+        try:
+            resp = supabase.table("unidades").insert({
+                "nome": nome_unidade
+            }).execute()
+        
+            st.success("Unidade criada!")
+            st.write(resp)
+        
+        except Exception as e:
+            st.error("ERRO REAL:")
+            st.write(e)
     
                 st.success("Unidade criada!")
 
