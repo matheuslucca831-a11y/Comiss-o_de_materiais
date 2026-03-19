@@ -397,21 +397,14 @@ with aba3:
 
         with col1:
             if st.button("Sim, excluir"):
-
                 try:
                     # deletar itens vinculados
-                    supabase.table("itens_inventario") \
-                        .delete() \
-                        .eq("material_id", mat["id"]) \
-                        .execute()
-
+                    supabase.table("itens_inventario").delete().eq("material_id", mat["id"]).execute()
                     # deletar material
-                    supabase.table("materiais") \
-                        .delete() \
-                        .eq("id", mat["id"]) \
-                        .execute()
+                    supabase.table("materiais").delete().eq("id", mat["id"]).execute()
 
                     st.success("Material excluído!")
+                    st.cache_data.clear() # <--- ADICIONE ESTA LINHA AQUI
                     del st.session_state["confirm_delete_material"]
                     st.rerun()
 
@@ -440,16 +433,12 @@ with aba3:
         )
 
         if st.button("Salvar alteração", key="btn_salvar_material"):
-
             if not novo_nome:
                 st.warning("Digite o nome")
             else:
-                supabase.table("materiais") \
-                    .update({"nome": novo_nome}) \
-                    .eq("id", mat["id"]) \
-                    .execute()
-
+                supabase.table("materiais").update({"nome": novo_nome}).eq("id", mat["id"]).execute()
                 st.success("Material atualizado!")
+                st.cache_data.clear() # <--- ADICIONE ESTA LINHA AQUI
                 del st.session_state["edit_material"]
                 st.rerun()
 
