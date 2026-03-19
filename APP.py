@@ -569,6 +569,7 @@ for item in itens:
     estrutura.setdefault(unidade_nome, {})
     estrutura[unidade_nome].setdefault(ambiente_nome, [])
     estrutura[unidade_nome][ambiente_nome].append({
+        "id": item["id"],
         "material": mat.get("nome"),
         "patrimonio": item["patrimonio"],
         "status": item["status"]
@@ -600,9 +601,23 @@ else:
                 with st.expander(f"📍 {ambiente}", expanded=False):
 
                     for i in itens_lista:
-                        st.write(
-                            cor(i["status"]),
-                            i["material"],
-                            "| Patrimônio:",
-                            i["patrimonio"]
-                        )
+                        col1, col2, col3 = st.columns([6,1,1])
+                    
+                        # INFO
+                        with col1:
+                            st.write(
+                                cor(i["status"]),
+                                i["material"],
+                                "| Patrimônio:",
+                                i["patrimonio"]
+                            )
+                    
+                        # EDITAR
+                        with col2:
+                            if st.button("✏️", key=f"edit_item_{i['id']}"):
+                                st.session_state["edit_item"] = i
+                    
+                        # EXCLUIR
+                        with col3:
+                            if st.button("🗑️", key=f"del_item_{i['id']}"):
+                                st.session_state["confirm_delete_item"] = i
