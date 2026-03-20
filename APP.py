@@ -23,12 +23,9 @@ def verificar_hash(senha, hash_db):
 
 # --- 3. TELA DE LOGIN ---
 
+# --- 3. TELA DE LOGIN ---
+
 def tela_login():
-    if matricula == "admin" and senha == "1234":
-    st.session_state.usuario_logado = "admin"
-    st.session_state.nome_admin = "Administrador Master"
-    st.rerun()
-    
     if "usuario_logado" not in st.session_state:
         st.session_state.usuario_logado = None
         st.session_state.nome_admin = ""
@@ -43,7 +40,14 @@ def tela_login():
                 senha = st.text_input("Senha Numérica", type="password", help="Digite apenas números")
                 
                 if st.button("Acessar Sistema", use_container_width=True):
-                    if not matricula or not senha:
+                    # 1. TESTE DE EMERGÊNCIA (Caso o banco falhe ou esteja vazio)
+                    if matricula == "admin" and senha == "1234":
+                        st.session_state.usuario_logado = "admin"
+                        st.session_state.nome_admin = "Administrador Master"
+                        st.rerun()
+                    
+                    # 2. VALIDAÇÃO NORMAL
+                    elif not matricula or not senha:
                         st.warning("Preencha todos os campos.")
                     elif not senha.isdigit():
                         st.error("A senha deve conter apenas números!")
@@ -52,7 +56,6 @@ def tela_login():
                         
                         if res.data:
                             user_data = res.data[0]
-                            # Agora a função verificar_hash existe e vai funcionar
                             if verificar_hash(senha, user_data["senha_hash"]):
                                 st.session_state.usuario_logado = user_data["usuario"]
                                 st.session_state.nome_admin = user_data["nome_exibicao"]
