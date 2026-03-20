@@ -613,16 +613,28 @@ with aba4:
                         st.warning("⚠️ Digite o nome do novo material")
                         st.stop()
                     else:
-                        res_mat = supabase.table("materiais").insert({"nome": novo_material.strip()}).execute()
-                        if res_mat.data:
-                            material_id = res_mat.data[0]["id"]
-                            st.cache_data.clear()
+                        nome_limpo = novo_material.strip()
+                        
+                        # --- LÓGICA ANTI-DUPLICIDADE ---
+                        # Primeiro, verificamos se esse nome já existe no banco
+                        check_mat = supabase.table("materiais").select("id").eq("nome", nome_limpo).execute()
+                        
+                        if check_mat.data:
+                            # Se já existe, usamos o ID que já está lá
+                            material_id = check_mat.data[0]["id"]
+                        else:
+                            # Se não existe, aí sim inserimos o novo
+                            res_mat = supabase.table("materiais").insert({"nome": nome_limpo}).execute()
+                            if res_mat.data:
+                                material_id = res_mat.data[0]["id"]
+                                st.cache_data.clear()
+                
                 elif material_sel:
                     material_id = material_sel["id"]
 
                 if material_id and ambiente_sel:
                     try:
-                        # 1. Cria o item e recebe os dados de volta
+                        # 1. Cria o item vinculado ao material_id (existente ou novo)
                         res_item = supabase.table("itens_inventario").insert({
                             "ambiente_id": ambiente_sel["id"],
                             "material_id": material_id,
@@ -632,17 +644,16 @@ with aba4:
                         }).execute()
                 
                         if res_item.data:
-                            # O PULO DO GATO: Use o mesmo nome de variável aqui e embaixo
                             id_criado = res_item.data[0]["id"] 
                             
-                            # 2. Auditoria Inicial usando o ID que acabou de ser gerado
+                            # 2. Auditoria Inicial
                             supabase.table("historico_alteracoes").insert({
-                                "item_id": id_criado, # <--- Agora o nome bate com a variável acima
+                                "item_id": id_criado,
                                 "usuario": st.session_state.nome_admin,
                                 "detalhes": f"Cadastro inicial realizado por {st.session_state.nome_admin}"
                             }).execute()
                 
-                            st.success("✅ Item cadastrado!")
+                            st.success("✅ Item cadastrado com sucesso!")
                             st.cache_data.clear()
                             st.rerun()
                     except Exception as e:
