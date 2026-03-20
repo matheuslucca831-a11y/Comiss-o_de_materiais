@@ -28,6 +28,11 @@ def tela_login():
         st.session_state.usuario_logado = None
         st.session_state.nome_admin = ""
 
+    if matricula == "admin" and senha == "1234":
+    st.session_state.usuario_logado = "admin"
+    st.session_state.nome_admin = "Administrador Master"
+    st.rerun()
+
     if st.session_state.usuario_logado is None:
         # Centraliza a tela de login
         _, col2, _ = st.columns([1,2,1]) 
