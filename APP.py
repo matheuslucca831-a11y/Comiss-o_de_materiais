@@ -1,27 +1,27 @@
 import pandas as pd
-import io  # Adicionado
+import io
 from io import BytesIO
 import streamlit as st
 from supabase import create_client
 from datetime import datetime, timedelta
-
-url = "https://oudfbraxmwuskdnnlisf.supabase.co"
-key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im91ZGZicmF4bXd1c2tkbm5saXNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4Nzc5NzQsImV4cCI6MjA4OTQ1Mzk3NH0.QnL67maBxqsfgm4xHmLBYcqPbQ99swjHw3OzndSM9qA"
-
-supabase = create_client(url, key)
-
-from datetime import datetime, timedelta
-
-
 import bcrypt
 
+# 1. Configurações de conexão
+url = "https://oudfbraxmwuskdnnlisf.supabase.co"
+key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im91ZGZicmF4bXd1c2tkbm5saXNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4Nzc5NzQsImV4cCI6MjA4OTQ1Mzk3NH0.QnL67maBxqsfgm4xHmLBYcqPbQ99swjHw3OzndSM9qA"
+supabase = create_client(url, key)
+
+# --- 2. FUNÇÕES DE SEGURANÇA (Adicionei a verificar_hash que faltava) ---
+
 def gerar_senha_inicial(senha_numerica):
-    # Transforma a senha em hash para salvar no banco
     hash_gerado = bcrypt.hashpw(str(senha_numerica).encode('utf-8'), bcrypt.gensalt())
     return hash_gerado.decode('utf-8')
 
-# Exemplo: Se sua matrícula for 12345 e senha 2026
-print(f"Senha Hash: {gerar_senha_inicial('2026')}")
+def verificar_hash(senha, hash_db):
+    # Esta função é essencial para a tela_login funcionar!
+    return bcrypt.checkpw(senha.encode('utf-8'), hash_db.encode('utf-8'))
+
+# --- 3. TELA DE LOGIN ---
 
 def tela_login():
     if "usuario_logado" not in st.session_state:
@@ -29,13 +29,12 @@ def tela_login():
         st.session_state.nome_admin = ""
 
     if st.session_state.usuario_logado is None:
-        with st.columns([1,2,1])[1]: # Centraliza a tela de login
+        # Centraliza a tela de login
+        _, col2, _ = st.columns([1,2,1]) 
+        with col2:
             st.markdown("### 🏥 Controle de Materiais - Login")
             with st.container(border=True):
-                # Usamos a matrícula como identificador
                 matricula = st.text_input("Matrícula (Usuário)")
-                
-                # Input de senha que aceita apenas números (ajuda na validação visual)
                 senha = st.text_input("Senha Numérica", type="password", help="Digite apenas números")
                 
                 if st.button("Acessar Sistema", use_container_width=True):
@@ -44,22 +43,28 @@ def tela_login():
                     elif not senha.isdigit():
                         st.error("A senha deve conter apenas números!")
                     else:
-                        # Busca pela matrícula no Supabase
                         res = supabase.table("usuarios").select("*").eq("usuario", matricula).execute()
                         
                         if res.data:
                             user_data = res.data[0]
-                            # Verifica se a senha bate com o hash do banco
+                            # Agora a função verificar_hash existe e vai funcionar
                             if verificar_hash(senha, user_data["senha_hash"]):
-                                st.session_state.usuario_logado = user_data["usuario"] # Salva a matrícula
-                                st.session_state.nome_admin = user_data["nome_exibicao"] # Salva o nome real
+                                st.session_state.usuario_logado = user_data["usuario"]
+                                st.session_state.nome_admin = user_data["nome_exibicao"]
                                 st.success(f"Conectado como: {user_data['nome_exibicao']}")
                                 st.rerun()
                             else:
                                 st.error("Senha incorreta.")
                         else:
                             st.error("Matrícula não cadastrada.")
-        st.stop()
+        st.stop() # Bloqueia o app até logar
+
+# --- 4. EXECUÇÃO ---
+
+# IMPORTANTE: Chame a função de login ANTES de criar as abas
+tela_login()
+
+# O restante das suas funções (limpar_input, exportar_excel, etc) vem aqui...
 
 
 def limpar_input_unidade():
