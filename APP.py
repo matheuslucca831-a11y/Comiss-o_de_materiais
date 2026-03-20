@@ -16,6 +16,12 @@ supabase = create_client(url, key)
 # Inicializa o gerenciador de cookies
 cookie_manager = stx.CookieManager()
 
+@st.cache_resource
+def get_cookie_manager():
+    return stx.CookieManager()
+
+cookie_manager = get_cookie_manager()
+
 def gerar_senha_inicial(senha_numerica):
     hash_gerado = bcrypt.hashpw(str(senha_numerica).encode('utf-8'), bcrypt.gensalt())
     return hash_gerado.decode('utf-8')
@@ -29,70 +35,64 @@ def verificar_hash(senha, hash_db):
 # --- 3. TELA DE LOGIN ---
 
 def tela_login():
-    # 1. Inicializa os estados de sessão se não existirem
     if "usuario_logado" not in st.session_state:
         st.session_state.usuario_logado = None
         st.session_state.nome_admin = ""
 
-    # 2. Tenta recuperar o cookie (Persistência ao dar F5)
+    # 1. Tenta ler o cookie
+    # O timeout=0.1 ajuda a dar um fôlego para o componente responder
     cookie_usuario = cookie_manager.get(cookie="usuario_logado")
     
-    # Se o cookie existe e o usuário não está logado no state, recuperamos o login
+    # IMPORTANTE: Se o cookie existe e o state está vazio, reconecta
     if cookie_usuario and st.session_state.usuario_logado is None:
-        res = supabase.table("usuarios").select("usuario, nome_exibicao").eq("usuario", cookie_usuario).execute()
-        if res.data:
-            user_data = res.data[0]
-            st.session_state.usuario_logado = user_data["usuario"]
-            st.session_state.nome_admin = user_data["nome_exibicao"]
-            st.rerun()
+        try:
+            res = supabase.table("usuarios").select("usuario, nome_exibicao").eq("usuario", cookie_usuario).execute()
+            if res.data:
+                user_data = res.data[0]
+                st.session_state.usuario_logado = user_data["usuario"]
+                st.session_state.nome_admin = user_data["nome_exibicao"]
+                st.rerun()
+        except Exception:
+            pass # Evita travar se houver erro de conexão momentâneo
 
-    # 3. Se ainda não estiver logado, mostra o formulário
+    # 2. Se não houver cookie E não estiver logado, mostra a tela
     if st.session_state.usuario_logado is None:
         _, col2, _ = st.columns([1, 2, 1])
         with col2:
             st.markdown("### 🏥 Controle de Materiais - Login")
             with st.container(border=True):
-                # Usamos nomes de variáveis claros para evitar o NameError
                 input_matricula = st.text_input("Matrícula (Usuário)", key="login_user")
-                input_senha = st.text_input("Senha Numérica", type="password", help="Digite apenas números", key="login_pass")
+                input_senha = st.text_input("Senha Numérica", type="password", key="login_pass")
                 
                 if st.button("Acessar Sistema", use_container_width=True):
+                    # Lógica de validação (Admin ou DB)
                     if input_matricula == "admin" and input_senha == "1234":
-                        st.session_state.usuario_logado = "admin"
-                        st.session_state.nome_admin = "Administrador Master"
-                        cookie_manager.set("usuario_logado", "admin", expires_at=datetime.now() + timedelta(days=1))
-                        st.rerun()
-                    
-                    elif not input_matricula or not input_senha:
-                        st.warning("Preencha todos os campos.")
-                    
+                        user_id = "admin"
+                        nome = "Administrador Master"
                     else:
-                        # Busca o usuário no Supabase
                         res = supabase.table("usuarios").select("*").eq("usuario", input_matricula).execute()
-                        
-                        if res.data:
-                            user_db = res.data[0]
-                            # Valida a senha usando o hash
-                            if verificar_hash(input_senha, user_db["senha_hash"]):
-                                # SALVA NO COOKIE para aguentar o F5
-                                cookie_manager.set("usuario_logado", user_db["usuario"], expires_at=datetime.now() + timedelta(days=1))
-                                
-                                st.session_state.usuario_logado = user_db["usuario"]
-                                st.session_state.nome_admin = user_db["nome_exibicao"]
-                                st.success(f"Conectado como: {user_db['nome_exibicao']}")
-                                st.rerun()
-                            else:
-                                st.error("Senha incorreta.")
+                        if res.data and verificar_hash(input_senha, res.data[0]["senha_hash"]):
+                            user_id = res.data[0]["usuario"]
+                            nome = res.data[0]["nome_exibicao"]
                         else:
-                            st.error("Matrícula não cadastrada.")
-        st.stop() # Bloqueia o restante do app
+                            st.error("Credenciais inválidas")
+                            return
+
+                    # SETAR COOKIE E STATE
+                    st.session_state.usuario_logado = user_id
+                    st.session_state.nome_admin = nome
+                    cookie_manager.set("usuario_logado", user_id, expires_at=datetime.now() + timedelta(days=7))
+                    st.rerun()
+        
+        st.stop()
         
 def botao_sair():
-    if st.sidebar.button("Sair"):
-        cookie_manager.delete("usuario_logado")
-        st.session_state.usuario_logado = None
+    # Coloque isso na sua Sidebar
+    if st.sidebar.button("Encerrar Sessão"):
+        cookie_manager.delete("usuario_logado") # Remove do navegador
+        st.session_state.usuario_logado = None # Remove da memória atual
         st.rerun()
-
+        
 # --- 4. EXECUÇÃO ---
 
 # IMPORTANTE: Chame a função de login ANTES de criar as abas
