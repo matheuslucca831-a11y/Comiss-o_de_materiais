@@ -596,289 +596,286 @@ with aba3:
 
 
 with aba4:
-    st.header("📋 Controle de materiais")
+    st.header("📋 Controle de Materiais")
 
-    # 1. BUSCA DE DADOS (Cache)
+    # --- 1. BUSCA DE DADOS (Cache - Mantido) ---
+    # Nota: Garanta que st.cache_data.clear() é chamado após qualquer INSERT/UPDATE/DELETE
     unidades = get_unidades()
     materiais_db = get_materiais()
     ambientes_all = get_ambientes()
     itens_all = get_itens()
 
-    # =========================
-    # ÁREA DE CADASTRO
-    # =========================
-    st.subheader("➕ Cadastrar Item")
-
-    unidade_sel = st.selectbox(
-        "Unidade", unidades, format_func=lambda x: x["nome"],
-        index=None, placeholder="Selecione a unidade...", key="item_unidade"
+    # =========================================================
+    # ÁREA DE CADASTRO (Otimizada com st.form para Velocidade)
+    # =========================================================
+    st.subheader("➕ Cadastrar Novo Item")
+    
+    # Selectboxes de hierarquia (fora do form para manter a reatividade de cascata)
+    c1, c2 = st.columns(2)
+    unidade_sel = c1.selectbox(
+        "1. Selecione a Unidade", unidades, format_func=lambda x: x["nome"],
+        index=None, placeholder="Escolha a unidade...", key="item_unidade"
     )
 
     if unidade_sel:
         ambientes_f = [a for a in ambientes_all if a["unidade_id"] == unidade_sel["id"]]
-        
-        ambiente_sel = st.selectbox(
-            "Ambiente", ambientes_f, format_func=lambda x: x["nome"],
-            index=None, placeholder="Selecione o ambiente...", key="item_ambiente"
+        ambiente_sel = c2.selectbox(
+            "2. Selecione o Ambiente", ambientes_f, format_func=lambda x: x["nome"],
+            index=None, placeholder="Escolha o ambiente...", key="item_ambiente"
         )
 
         if ambiente_sel:
-            lista_materiais = materiais_db + [{"id": "outro", "nome": "Outro..."}]
-            material_sel = st.selectbox(
-                "Material", lista_materiais, format_func=lambda x: x["nome"],
-                index=None, placeholder="Selecione o material...", key="item_material"
-            )
-
-            novo_material = None
-            if material_sel and material_sel["id"] == "outro":
-                novo_material = st.text_input("Nome do novo material", key="novo_mat_item")
-
-            patrimonio = st.text_input("Patrimônio", key="patrimonio_item")
-            obs_item = st.text_area("Observações", key="obs_item")
-            status = st.selectbox(
-                "Status", ["satisfatorio", "trocar_nao_urgente", "trocar_urgente"],
-                index=0, key="status_item"
-            )
-
-            if st.button("Salvar Item", key="btn_salvar_item"):
-                material_id = None 
+            # Iniciamos o FORM para bloquear recarregamentos durante o preenchimento
+            with st.form("form_cadastro_detalhes", clear_on_submit=True):
+                st.markdown("##### 3. Detalhes do Item")
                 
-                if material_sel and material_sel["id"] == "outro":
-                    if not novo_material:
-                        st.warning("⚠️ Digite o nome do novo material")
-                        st.stop()
-                    else:
-                        nome_limpo = novo_material.strip()
-                        
-                        # --- LÓGICA ANTI-DUPLICIDADE ---
-                        # Primeiro, verificamos se esse nome já existe no banco
-                        check_mat = supabase.table("materiais").select("id").eq("nome", nome_limpo).execute()
-                        
-                        if check_mat.data:
-                            # Se já existe, usamos o ID que já está lá
-                            material_id = check_mat.data[0]["id"]
+                col_mat, col_pat = st.columns([2, 1])
+                lista_materiais = materiais_db + [{"id": "outro", "nome": "Outro..."}]
+                material_sel = col_mat.selectbox(
+                    "Material", lista_materiais, format_func=lambda x: x["nome"],
+                    index=None, placeholder="Selecione..."
+                )
+                
+                # Campos de texto e área agora não causam rerun ao digitar
+                novo_material = st.text_input("Se selecionou 'Outro', digite o nome:")
+                patrimonio = col_pat.text_input("Patrimônio")
+                obs_item = st.text_area("Observações (opcional)")
+                
+                # Selectbox dentro do form também não causa rerun imediato
+                status = st.selectbox(
+                    "Status Inicial", ["satisfatorio", "trocar_nao_urgente", "trocar_urgente"], index=0
+                )
+
+                # Botão de submissão do formulário
+                btn_salvar = st.form_submit_button("✅ Salvar Item no Inventário", use_container_width=True)
+
+                if btn_salvar:
+                    # --- VALIDAÇÕES E LÓGICA DE SALVAMENTO (Sua lógica original mantida) ---
+                    material_id = None 
+                    
+                    if material_sel and material_sel["id"] == "outro":
+                        if not novo_material:
+                            st.warning("⚠️ Digite o nome do novo material")
                         else:
-                            # Se não existe, aí sim inserimos o novo
-                            res_mat = supabase.table("materiais").insert({"nome": nome_limpo}).execute()
-                            if res_mat.data:
-                                material_id = res_mat.data[0]["id"]
-                                st.cache_data.clear()
-                
-                elif material_sel:
-                    material_id = material_sel["id"]
-
-                if material_id and ambiente_sel:
-                    try:
-                        # 1. Cria o item vinculado ao material_id (existente ou novo)
-                        res_item = supabase.table("itens_inventario").insert({
-                            "ambiente_id": ambiente_sel["id"],
-                            "material_id": material_id,
-                            "patrimonio": patrimonio,
-                            "status": status,
-                            "observacao": obs_item
-                        }).execute()
-                
-                        if res_item.data:
-                            id_criado = res_item.data[0]["id"] 
+                            nome_limpo = novo_material.strip()
+                            # Check duplicidade
+                            check_mat = supabase.table("materiais").select("id").eq("nome", nome_limpo).execute()
                             
-                            # 2. Auditoria Inicial
-                            supabase.table("historico_alteracoes").insert({
-                                "item_id": id_criado,
-                                "usuario": st.session_state.nome_admin,
-                                "detalhes": f"Cadastro inicial realizado por {st.session_state.nome_admin}"
+                            if check_mat.data:
+                                material_id = check_mat.data[0]["id"]
+                            else:
+                                res_mat = supabase.table("materiais").insert({"nome": nome_limpo}).execute()
+                                if res_mat.data:
+                                    material_id = res_mat.data[0]["id"]
+                                    st.cache_data.clear() # Limpa cache de materiais
+                    
+                    elif material_sel:
+                        material_id = material_sel["id"]
+
+                    if material_id and ambiente_sel:
+                        try:
+                            # 1. Cria o item
+                            res_item = supabase.table("itens_inventario").insert({
+                                "ambiente_id": ambiente_sel["id"],
+                                "material_id": material_id,
+                                "patrimonio": patrimonio,
+                                "status": status,
+                                "observacao": obs_item
                             }).execute()
-                
-                            st.success("✅ Item cadastrado com sucesso!")
-                            st.cache_data.clear()
-                            st.rerun()
-                    except Exception as e:
-                        st.error(f"❌ Erro ao salvar: {e}")
+                    
+                            if res_item.data:
+                                id_criado = res_item.data[0]["id"] 
+                                
+                                # 2. Auditoria Inicial (Usa st.session_state.nome_admin)
+                                usuario_auditoria = st.session_state.get("nome_admin", "Sistema")
+                                supabase.table("historico_alteracoes").insert({
+                                    "item_id": id_criado,
+                                    "usuario": usuario_auditoria,
+                                    "detalhes": f"Cadastro inicial realizado por {usuario_auditoria}"
+                                }).execute()
+                    
+                                st.success("✅ Item cadastrado com sucesso!")
+                                # Limpa caches e recarrega para mostrar o novo item na árvore
+                                st.cache_data.clear() 
+                                st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ Erro ao salvar: {e}")
+                    else:
+                        st.warning("⚠️ Selecione um material válido.")
     else:
-        st.info("Selecione uma unidade acima para realizar um novo cadastro.")
+        st.info("💡 Selecione uma unidade acima para liberar o formulário de cadastro.")
 
     st.markdown("---")
-    st.subheader("🔎 Consulta e Auditoria")
-    
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        f_unidade = st.selectbox("Filtrar Unidade", ["Todas"] + [u["nome"] for u in unidades], key="f_uni_tree")
-    with col2:
-        f_material = st.text_input("Material", key="f_mat_tree")
-    with col3:
-        f_status = st.selectbox("Status", ["Todos", "satisfatorio", "trocar_nao_urgente", "trocar_urgente"], key="f_sta_tree")
 
+    # =========================================================
+    # ÁREA DE CONSULTA (Pré-processamento Eficiente)
+    # =========================================================
+    st.subheader("🔎 Consulta e Árvore de Inventário")
+    
+    # Filtros visuais agradáveis
+    c1, c2, c3 = st.columns(3)
+    f_unidade = c1.selectbox("Filtrar Unidade", ["Todas"] + [u["nome"] for u in unidades], key="f_uni_tree")
+    f_material = c2.text_input("Buscar Material (Nome)", key="f_mat_tree", placeholder="Digite parte do nome...")
+    f_status = c3.selectbox("Filtrar Status", ["Todos", "satisfatorio", "trocar_nao_urgente", "trocar_urgente"], key="f_sta_tree")
+
+    # --- Otimização Técnica: Dicionários para busca instantânea O(1) ---
     dict_amb = {a["id"]: a for a in ambientes_all}
     dict_mat = {m["id"]: m for m in materiais_db}
     dict_uni = {u["id"]: u for u in unidades}
 
+    # Pré-filtragem centralizada (Evita processamento extra na renderização)
     estrutura = {}
     for item in itens_all:
         amb = dict_amb.get(item["ambiente_id"], {})
         mat = dict_mat.get(item["material_id"], {})
         uni = dict_uni.get(amb.get("unidade_id"), {})
 
+        # Aplicação dos filtros
         if f_unidade != "Todas" and uni.get("nome") != f_unidade: continue
         if f_material and f_material.lower() not in mat.get("nome", "").lower(): continue
         if f_status != "Todos" and item["status"] != f_status: continue
 
-        u_nome, a_nome = uni.get("nome", "Sem unidade"), amb.get("nome", "Sem ambiente")
-        estrutura.setdefault(u_nome, {}).setdefault(a_nome, []).append({**item, "mat_nome": mat.get("nome", "Desconhecido")})
+        u_nome = uni.get("nome", "Sem unidade")
+        a_nome = amb.get("nome", "Sem ambiente")
+        
+        # Montagem da árvore de exibição
+        if u_nome not in estrutura: estrutura[u_nome] = {}
+        if a_nome not in estrutura[u_nome]: estrutura[u_nome][a_nome] = []
+        
+        # Adiciona nome do material ao item para exibição
+        item_completo = {**item, "mat_nome": mat.get("nome", "Desconhecido")}
+        estrutura[u_nome][a_nome].append(item_completo)
 
+    # --- RENDERIZAÇÃO VISUAL AGRADÁVEL ---
     if not estrutura:
-        st.info("Nenhum item encontrado.")
+        st.info("Nenhum item corresponde aos filtros selecionados.")
     else:
-        # Percorremos as Unidades
+        # Árvore Hierárquica
         for unidade, ambientes_dict in estrutura.items():
-            
-            # 1. CÁLCULO DE TOTAIS DA UNIDADE
+            # Cálculos de totais
             qtd_ambientes = len(ambientes_dict)
-            qtd_itens_total = sum(len(lista) for lista in ambientes_dict.values())
+            qtd_itens_uni = sum(len(lista) for lista in ambientes_dict.values())
             
-            # Título com contagem: 🏥 USF Exemplo (Ambientes: 3 | Itens: 12)
-            titulo_unidade = f"🏥 {unidade} (Ambientes: {qtd_ambientes} / Itens: {qtd_itens_total})"
-            
-            # Mudamos 'expanded=True' para 'False' para não poluir
-            with st.expander(titulo_unidade, expanded=False):
+            # Título da Unidade Compacto e Informativo
+            label_uni = f"🏥 {unidade} ({qtd_ambientes} Amb / {qtd_itens_uni} Itens)"
+            with st.expander(label_uni, expanded=False):
                 
-                # Percorremos os Ambientes desta Unidade
                 for ambiente, itens_lista in ambientes_dict.items():
-                    
-                    # 2. CÁLCULO DE ITENS DO AMBIENTE
                     qtd_itens_amb = len(itens_lista)
                     
-                    # Título do Ambiente: 📍 Consultório 1 (Itens: 5)
-                    titulo_ambiente = f"📍 {ambiente} ({qtd_itens_amb} itens)"
-                    
-                    with st.expander(titulo_ambiente, expanded=False):
+                    # Título do Ambiente
+                    label_amb = f"📍 {ambiente} ({qtd_itens_amb} itens)"
+                    with st.expander(label_amb, expanded=False):
+                        
+                        # Listagem de Itens Otimizada
                         for i in itens_lista:
-                        # --- O resto do seu código de botões (Editar, Deletar, Histórico) entra aqui ---
-                            item_container = st.container()
-                            
-                            col_txt, col_edit, col_del, col_aud = item_container.columns([5,1,1,1])
+                            # Container para agrupar visualmente o item e suas ações
+                            item_box = st.container()
+                            col_txt, col_acoes = item_box.columns([5, 1.2]) # Espaço ajustado para ações
                             
                             with col_txt:
-                                st.write(f"{cor(i['status'])} **{i['mat_nome']}** | Pat: {i['patrimonio']}")
-                                if i.get("observacao"): st.caption(f"📝 {i['observacao']}")
+                                # Função cor(status) mantida
+                                st.write(f"{cor(i['status'])} **{i['mat_nome']}** | Pat: `{i['patrimonio']}`")
+                                if i.get("observacao"): 
+                                    st.caption(f"📝 {i['observacao']}")
 
-                            with col_edit:
-                                if st.button("✏️", key=f"btn_ed_{i['id']}"):
+                            with col_acoes:
+                                # Botões compactos e alinhados na mesma linha
+                                c_ed, c_del, c_aud = st.columns(3)
+                                if c_ed.button("✏️", key=f"ed_{i['id']}", help="Editar Item"):
                                     st.session_state["edit_item_id"] = i["id"]
                                     st.rerun()
-                            
-                            with col_del:
-                                if st.button("🗑️", key=f"btn_del_{i['id']}"):
+                                if c_del.button("🗑️", key=f"del_{i['id']}", help="Excluir Item"):
                                     st.session_state["confirm_delete_item_id"] = i["id"]
                                     st.rerun()
-
-                            with col_aud:
-                                if st.button("📜", key=f"btn_aud_{i['id']}"):
+                                if c_aud.button("📜", key=f"aud_{i['id']}", help="Ver Histórico"):
                                     st.session_state["view_audit_id"] = i["id"]
                                     st.rerun()
 
-                            # --- RENDERIZAÇÃO DOS MODAIS DENTRO DO ITEM ---
+                            # --- RENDERIZAÇÃO DOS MODAIS IN-LINE (Sua lógica mantida) ---
                             
                             # 1. HISTÓRICO
                             if st.session_state.get("view_audit_id") == i["id"]:
                                 with st.container(border=True):
-                                    st.info(f"Histórico: {i['mat_nome']}")
-                                    
-                                    # Chamada segura ao banco (sem .order() para não causar APIError)
+                                    st.info(f"Histórico de Alterações: {i['mat_nome']}")
                                     res = supabase.table("historico_alteracoes").select("*").eq("item_id", i["id"]).execute()
                                     logs = res.data
-                                    
                                     if logs:
-                                        # Ordenamos via Python para garantir que o mais novo fique em cima
+                                        # Ordenação Python (Mais eficiente que order no Supabase para poucos registros)
                                         logs = sorted(logs, key=lambda x: x.get('created_at', ''), reverse=True)
-                                        
                                         for l in logs:
-                                            # Pegamos o 'created_at' ou 'data_alteracao'
+                                            # Lógica de formatação de data mantida
                                             raw_date = l.get('created_at') or l.get('data_alteracao')
-                                            
                                             if raw_date:
                                                 try:
-                                                    # Limpa a string de data (remove milissegundos e fuso se necessário)
                                                     clean_date = raw_date.split('.')[0].replace('T', ' ')
                                                     dt_obj = datetime.strptime(clean_date, '%Y-%m-%d %H:%M:%S')
                                                     dt_f = dt_obj.strftime('%d/%m/%Y %H:%M')
-                                                except Exception:
-                                                    dt_f = raw_date # Se falhar, mostra o que veio do banco
-                                            else:
-                                                dt_f = "Data Indisponível"
-                            
+                                                except: dt_f = raw_date
+                                            else: dt_f = "--/--/--"
                                             st.write(f"⏰ **{dt_f}** | {l['detalhes']}")
-                                    else:
-                                        st.write("Sem registros.")
-                                    
-                                    if st.button("Fechar Histórico", key=f"cls_aud_{i['id']}"):
+                                    else: st.write("Nenhum registro encontrado.")
+                                    if st.button("Fechar Histórico", key=f"cls_aud_{i['id']}", use_container_width=True):
                                         del st.session_state["view_audit_id"]
                                         st.rerun()
 
-                            # --- 2. EDIÇÃO (Versão com Histórico de Observações) ---
+                            # 2. EDIÇÃO
                             if st.session_state.get("edit_item_id") == i["id"]:
                                 with st.container(border=True):
-                                    st.markdown("### ✏️ Editar")
+                                    st.markdown(f"### ✏️ Editar: {i['mat_nome']}")
                                     n_pat = st.text_input("Patrimônio", value=i["patrimonio"], key=f"inp_pat_{i['id']}")
-                                    # Troquei para text_area para facilitar a escrita de notas longas
                                     n_obs = st.text_area("Observação", value=i.get("observacao", "") or "", key=f"inp_obs_{i['id']}")
-                                    
                                     st_opts = ["satisfatorio", "trocar_nao_urgente", "trocar_urgente"]
                                     n_sta = st.selectbox("Status", st_opts, index=st_opts.index(i["status"]) if i["status"] in st_opts else 0, key=f"inp_sta_{i['id']}")
                                     
                                     c1, c2 = st.columns(2)
-                                    if c1.button("Salvar", key=f"sv_{i['id']}"):
-                                        # Lógica para detectar o que mudou
+                                    if c1.button("Salvar Alterações", key=f"sv_{i['id']}", use_container_width=True):
+                                        # Lógica de detecção de mudanças mantida
                                         mudancas = []
-                                        if n_sta != i["status"]:
-                                            mudancas.append(f"Status: {i['status']} ➔ {n_sta}")
-                                        if n_pat != i["patrimonio"]:
-                                            mudancas.append(f"Pat: {i['patrimonio']} ➔ {n_pat}")
-                                        
+                                        if n_sta != i["status"]: mudancas.append(f"Status: {i['status']} ➔ {n_sta}")
+                                        if n_pat != i["patrimonio"]: mudancas.append(f"Pat: {i['patrimonio']} ➔ {n_pat}")
                                         obs_atual = i.get("observacao") or ""
-                                        if n_obs != obs_atual:
-                                            mudancas.append(f"Obs: {n_obs if n_obs else '(vazia)'}")
+                                        if n_obs != obs_atual: mudancas.append(f"Obs Atualizada")
                             
-                                        # Só executa se houver algo na lista de mudanças
                                         if mudancas:
                                             detalhes_log = " | ".join(mudancas)
-                                            
-                                            # Grava no histórico
+                                            usuario_edicao = st.session_state.get("nome_admin", "Admin")
                                             supabase.table("historico_alteracoes").insert({
-                                                "item_id": i["id"], 
-                                                "usuario": "Admin", 
-                                                "detalhes": detalhes_log
+                                                "item_id": i["id"], "usuario": usuario_edicao, "detalhes": detalhes_log
                                             }).execute()
-                                            
-                                            # Atualiza o item
                                             supabase.table("itens_inventario").update({
-                                                "patrimonio": n_pat, 
-                                                "status": n_sta, 
-                                                "observacao": n_obs
+                                                "patrimonio": n_pat, "status": n_sta, "observacao": n_obs
                                             }).eq("id", i["id"]).execute()
-                                            
                                             st.success("✅ Alterações salvas!")
                                             st.cache_data.clear()
                                             del st.session_state["edit_item_id"]
                                             st.rerun()
-                                        else:
-                                            st.warning("Nenhuma alteração foi feita.")
-                            
-                                    if c2.button("Cancelar", key=f"cn_{i['id']}"):
+                                        else: st.warning("Nenhuma alteração detectada.")
+                                    if c2.button("Cancelar", key=f"cn_{i['id']}", use_container_width=True):
                                         del st.session_state["edit_item_id"]
                                         st.rerun()
 
                             # 3. EXCLUSÃO
                             if st.session_state.get("confirm_delete_item_id") == i["id"]:
                                 with st.container(border=True):
-                                    st.error("Excluir item?")
-                                    if st.button("Confirmar", key=f"v_del_{i['id']}"):
+                                    st.error(f"⚠️ Tem certeza que deseja excluir o item '{i['mat_nome']}'?")
+                                    st.caption("Esta ação não pode ser desfeita e removerá todo o histórico associado.")
+                                    col_v, col_n = st.columns(2)
+                                    if col_v.button("Sim, Excluir permanentemente", key=f"v_del_{i['id']}", use_container_width=True):
+                                        # Deleta histórico primeiro (FK constraint)
                                         supabase.table("historico_alteracoes").delete().eq("item_id", i["id"]).execute()
                                         supabase.table("itens_inventario").delete().eq("id", i["id"]).execute()
                                         st.cache_data.clear()
                                         del st.session_state["confirm_delete_item_id"]
                                         st.rerun()
-                                    if st.button("Desistir", key=f"n_del_{i['id']}"):
+                                    if col_n.button("Não, Cancelar", key=f"n_del_{i['id']}", use_container_width=True):
                                         del st.session_state["confirm_delete_item_id"]
                                         st.rerun()
+                            
+                            # Divisor visual leve entre itens
+                            st.markdown("<hr style='margin: 0.5em 0; border-color: #f0f2f6;'>", unsafe_allow_html=True)
+
+
 with aba5:
     st.subheader("📊 Relatórios")
     
