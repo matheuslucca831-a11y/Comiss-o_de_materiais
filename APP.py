@@ -710,7 +710,7 @@ with aba4:
     # =========================================================
     # ÁREA DE CONSULTA (Pré-processamento Eficiente)
     # =========================================================
-    st.subheader("🔎 Consulta e Árvore de Inventário")
+    st.subheader("🔎 Consulta")
     
     # Filtros visuais agradáveis
     c1, c2, c3 = st.columns(3)
