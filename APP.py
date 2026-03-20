@@ -612,18 +612,17 @@ with aba4:
     st.header("📋 Controle de Materiais")
 
     # --- 1. BUSCA DE DADOS (Cache - Mantido) ---
-    # Nota: Garanta que st.cache_data.clear() é chamado após qualquer INSERT/UPDATE/DELETE
     unidades = get_unidades()
     materiais_db = get_materiais()
     ambientes_all = get_ambientes()
     itens_all = get_itens()
 
     # =========================================================
-    # ÁREA DE CADASTRO (Otimizada com st.form para Velocidade)
+    # ÁREA DE CADASTRO (Otimizada para Velocidade Máxima)
     # =========================================================
     st.subheader("➕ Cadastrar Novo Item")
     
-    # Selectboxes de hierarquia (fora do form para manter a reatividade de cascata)
+    # Selectboxes de hierarquia (fora do form)
     c1, c2 = st.columns(2)
     unidade_sel = c1.selectbox(
         "1. Selecione a Unidade", unidades, format_func=lambda x: x["nome"],
@@ -638,83 +637,97 @@ with aba4:
         )
 
         if ambiente_sel:
-            # Iniciamos o FORM para bloquear recarregamentos durante o preenchimento
+            # Formulário para detalhes
             with st.form("form_cadastro_detalhes", clear_on_submit=True):
                 st.markdown("##### 3. Detalhes do Item")
                 
-                col_mat, col_pat = st.columns([2, 1])
+                # Ajuste visual: Mais espaço para o nome do Material
+                col_mat, col_pat = st.columns([3, 1])
+                
                 lista_materiais = materiais_db + [{"id": "outro", "nome": "Outro..."}]
                 material_sel = col_mat.selectbox(
                     "Material", lista_materiais, format_func=lambda x: x["nome"],
                     index=None, placeholder="Selecione..."
                 )
                 
-                # Campos de texto e área agora não causam rerun ao digitar
-                novo_material = st.text_input("Se selecionou 'Outro', digite o nome:")
-                patrimonio = col_pat.text_input("Patrimônio")
-                obs_item = st.text_area("Observações (opcional)")
+                # Campos de entrada
+                novo_material = st.text_input("Se selecionou 'Outro', digite o nome:", placeholder="Nome do novo material...")
+                patrimonio = col_pat.text_input("Patrimônio", placeholder="Ex: 123456")
+                obs_item = st.text_area("Observações (opcional)", placeholder="Detalhes adicionais...")
                 
-                # Selectbox dentro do form também não causa rerun imediato
                 status = st.selectbox(
                     "Status Inicial", ["satisfatorio", "trocar_nao_urgente", "trocar_urgente"], index=0
                 )
 
-                # Botão de submissão do formulário
+                # Botão de submissão
                 btn_salvar = st.form_submit_button("✅ Salvar Item no Inventário", use_container_width=True)
 
                 if btn_salvar:
-                    # --- VALIDAÇÕES E LÓGICA DE SALVAMENTO (Sua lógica original mantida) ---
-                    material_id = None 
+                    # --- LÓGICA DE SALVAMENTO OTIMIZADA ---
                     
-                    if material_sel and material_sel["id"] == "outro":
-                        if not novo_material:
-                            st.warning("⚠️ Digite o nome do novo material")
-                        else:
-                            nome_limpo = novo_material.strip()
-                            # Check duplicidade
-                            check_mat = supabase.table("materiais").select("id").eq("nome", nome_limpo).execute()
-                            
-                            if check_mat.data:
-                                material_id = check_mat.data[0]["id"]
+                    # Usamos st.status para feedback imediato e moderno
+                    with st.status("🚀 Processando cadastro...", expanded=False) as status_load:
+                        material_id = None 
+                        
+                        # 1. Processamento de Material (Upsert para velocidade)
+                        if material_sel and material_sel["id"] == "outro":
+                            if not novo_material:
+                                status_load.update(label="⚠️ Erro: Nome do material ausente.", state="error")
+                                st.stop()
                             else:
-                                res_mat = supabase.table("materiais").insert({"nome": nome_limpo}).execute()
+                                nome_limpo = novo_material.strip()
+                                # Upsert: Cria se não existir, retorna se existir (1 operação em vez de 2)
+                                res_mat = supabase.table("materiais").upsert({"nome": nome_limpo}, on_conflict="nome").execute()
                                 if res_mat.data:
                                     material_id = res_mat.data[0]["id"]
-                                    st.cache_data.clear() # Limpa cache de materiais
-                    
-                    elif material_sel:
-                        material_id = material_sel["id"]
+                                    # Limpa cache apenas de materiais, se possível (aqui limpamos tudo por segurança)
+                                    st.cache_data.clear() 
+                        
+                        elif material_sel:
+                            material_id = material_sel["id"]
 
-                    if material_id and ambiente_sel:
-                        try:
-                            # 1. Cria o item
-                            res_item = supabase.table("itens_inventario").insert({
-                                "ambiente_id": ambiente_sel["id"],
-                                "material_id": material_id,
-                                "patrimonio": patrimonio,
-                                "status": status,
-                                "observacao": obs_item
-                            }).execute()
-                    
-                            if res_item.data:
-                                id_criado = res_item.data[0]["id"] 
+                        # 2. Gravação do Item e Histórico
+                        if material_id and ambiente_sel:
+                            try:
+                                status_load.update(label="💾 Gravando no banco de dados...")
                                 
-                                # 2. Auditoria Inicial (Usa st.session_state.nome_admin)
-                                usuario_auditoria = st.session_state.get("nome_admin", "Sistema")
-                                supabase.table("historico_alteracoes").insert({
-                                    "item_id": id_criado,
-                                    "usuario": usuario_auditoria,
-                                    "detalhes": f"Cadastro inicial realizado por {usuario_auditoria}"
+                                # Insere o Item
+                                res_item = supabase.table("itens_inventario").insert({
+                                    "ambiente_id": ambiente_sel["id"],
+                                    "material_id": material_id,
+                                    "patrimonio": patrimonio,
+                                    "status": status,
+                                    "observacao": obs_item
                                 }).execute()
-                    
-                                st.success("✅ Item cadastrado com sucesso!")
-                                # Limpa caches e recarrega para mostrar o novo item na árvore
-                                st.cache_data.clear() 
-                                st.rerun()
-                        except Exception as e:
-                            st.error(f"❌ Erro ao salvar: {e}")
-                    else:
-                        st.warning("⚠️ Selecione um material válido.")
+                        
+                                if res_item.data:
+                                    id_criado = res_item.data[0]["id"] 
+                                    usuario_auditoria = st.session_state.get("nome_admin", "Sistema")
+                                    
+                                    # Insere Histórico (Auditoria)
+                                    supabase.table("historico_alteracoes").insert({
+                                        "item_id": id_criado,
+                                        "usuario": usuario_auditoria,
+                                        "detalhes": f"Cadastro inicial"
+                                    }).execute()
+                        
+                                    # Finaliza o loading com sucesso
+                                    status_load.update(label="✅ Cadastro concluído!", state="complete")
+                                    
+                                    # Notificação rápida no canto da tela (st.toast)
+                                    st.toast(f"Item '{patrimonio}' salvo com sucesso!", icon='🚀')
+                                    
+                                    # Limpa caches para atualizar a árvore de consulta
+                                    st.cache_data.clear() 
+                                    
+                                    # Pequeno delay apenas para o usuário ler o sucesso antes do rerun
+                                    time.sleep(0.8)
+                                    st.rerun()
+                                    
+                            except Exception as e:
+                                status_load.update(label=f"❌ Erro crítico: {e}", state="error")
+                        else:
+                            status_load.update(label="⚠️ Erro: Selecione um material válido.", state="error")
     else:
         st.info("💡 Selecione uma unidade acima para liberar o formulário de cadastro.")
 
