@@ -49,6 +49,31 @@ if st.session_state.usuario_logado is None and "usuario_logado" in cookies:
 
 # --- 4. FUNÇÕES DE INTERFACE ---
 
+# --- BLOCO TEMPORÁRIO DE CRIAÇÃO (Pode apagar depois de usar) ---
+if st.sidebar.button("🛠️ Registrar Thaynan (Admin)"):
+    import bcrypt
+    
+    # Gerando o hash do jeito que o seu sistema espera
+    senha_plana = "1234"
+    hash_protegido = bcrypt.hashpw(senha_plana.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    
+    novo_usuario = {
+        "usuario": "658103",
+        "senha_hash": hash_protegido,
+        "nome_exibicao": "Thaynan"
+    }
+    
+    try:
+        # Tenta inserir no Supabase
+        res = supabase.table("usuarios").insert(novo_usuario).execute()
+        if res.data:
+            st.sidebar.success("✅ Thaynan criada com sucesso!")
+        else:
+            st.sidebar.error("❌ Erro: Usuário já pode existir ou colunas divergem.")
+    except Exception as e:
+        st.sidebar.error(f"⚠️ Erro técnico: {e}")
+# ---------------------------------------------------------------
+
 def verificar_hash(senha, hash_db):
     return bcrypt.checkpw(senha.encode('utf-8'), hash_db.encode('utf-8'))
 
