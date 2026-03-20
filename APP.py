@@ -622,6 +622,7 @@ with aba4:
 
                 if material_id and ambiente_sel:
                     try:
+                        # 1. Cria o item e recebe os dados de volta
                         res_item = supabase.table("itens_inventario").insert({
                             "ambiente_id": ambiente_sel["id"],
                             "material_id": material_id,
@@ -631,12 +632,14 @@ with aba4:
                         }).execute()
                 
                         if res_item.data:
-                            id_novo = res_item.data[0]["id"]
-                            # Auditoria Inicial
+                            # O PULO DO GATO: Use o mesmo nome de variável aqui e embaixo
+                            id_criado = res_item.data[0]["id"] 
+                            
+                            # 2. Auditoria Inicial usando o ID que acabou de ser gerado
                             supabase.table("historico_alteracoes").insert({
-                                "item_id": id_do_item,
-                                "usuario": st.session_state.nome_admin, # <--- Aqui entra o nome de quem logou
-                                "detalhes": f"Ação realizada por {st.session_state.nome_admin} em {datetime.now().strftime('%d/%m %H:%M')}"
+                                "item_id": id_criado, # <--- Agora o nome bate com a variável acima
+                                "usuario": st.session_state.nome_admin,
+                                "detalhes": f"Cadastro inicial realizado por {st.session_state.nome_admin}"
                             }).execute()
                 
                             st.success("✅ Item cadastrado!")
