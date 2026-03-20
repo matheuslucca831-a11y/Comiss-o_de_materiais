@@ -780,17 +780,23 @@ with aba4:
                                     st.caption(f"📝 {i['observacao']}")
 
                             with col_acoes:
-                                # Botões compactos e alinhados na mesma linha
-                                c_ed, c_del, c_aud = st.columns(3)
-                                if c_ed.button("✏️", key=f"ed_{i['id']}", help="Editar Item"):
-                                    st.session_state["edit_item_id"] = i["id"]
-                                    st.rerun()
-                                if c_del.button("🗑️", key=f"del_{i['id']}", help="Excluir Item"):
-                                    st.session_state["confirm_delete_item_id"] = i["id"]
-                                    st.rerun()
-                                if c_aud.button("📜", key=f"aud_{i['id']}", help="Ver Histórico"):
-                                    st.session_state["view_audit_id"] = i["id"]
-                                    st.rerun()
+                                # O popover cria o efeito de "menu de opções"
+                                with st.popover("⚙️", help="Ações do item"):
+                                    st.markdown(f"**Ações para:** {i['mat_nome']}")
+                                    
+                                    # Botões verticais dentro do menu para ficar organizado
+                                    if st.button("✏️ Editar Item", key=f"ed_{i['id']}", use_container_width=True):
+                                        st.session_state["edit_item_id"] = i["id"]
+                                        st.rerun()
+                                        
+                                    if st.button("📜 Ver Histórico", key=f"aud_{i['id']}", use_container_width=True):
+                                        st.session_state["view_audit_id"] = i["id"]
+                                        st.rerun()
+                                        
+                                    st.markdown("---") # Linha divisória para segurança
+                                    if st.button("🗑️ Excluir", key=f"del_{i['id']}", use_container_width=True, type="primary"):
+                                        st.session_state["confirm_delete_item_id"] = i["id"]
+                                        st.rerun()
 
                             # --- RENDERIZAÇÃO DOS MODAIS IN-LINE (Sua lógica mantida) ---
                             
