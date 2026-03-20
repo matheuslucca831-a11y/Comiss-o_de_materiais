@@ -14,7 +14,6 @@ supabase = create_client(url, key)
 
 # --- 2. FUNÇÕES DE SEGURANÇA (Adicionei a verificar_hash que faltava) ---
 # Inicializa o gerenciador de cookies
-cookie_manager = stx.CookieManager()
 
 @st.cache_resource
 def get_cookie_manager():
