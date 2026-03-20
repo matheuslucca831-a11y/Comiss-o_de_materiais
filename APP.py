@@ -778,25 +778,29 @@ with aba4:
                                 st.write(f"{cor(i['status'])} **{i['mat_nome']}** | Pat: `{i['patrimonio']}`")
                                 if i.get("observacao"): 
                                     st.caption(f"📝 {i['observacao']}")
-
-                            with col_acoes:
-                                # O popover cria o efeito de "menu de opções"
-                                with st.popover("⚙️", help="Ações do item"):
-                                    st.markdown(f"**Ações para:** {i['mat_nome']}")
                                     
-                                    # Botões verticais dentro do menu para ficar organizado
-                                    if st.button("✏️ Editar Item", key=f"ed_{i['id']}", use_container_width=True):
-                                        st.session_state["edit_item_id"] = i["id"]
-                                        st.rerun()
+                            with col_acoes:
+                                # 1. A ENGRENAGEM (Só aparece se nenhum modo de edição/exclusão estiver aberto para este item)
+                                # Isso evita que o usuário abra o menu enquanto já está excluindo
+                                if not (st.session_state.get("confirm_delete_item_id") == i["id"] or 
+                                        st.session_state.get("edit_item_id") == i["id"] or
+                                        st.session_state.get("view_audit_id") == i["id"]):
+                                    
+                                    with st.popover("⚙️", help="Ações"):
+                                        st.write(f"**Opções:** {i['mat_nome']}")
                                         
-                                    if st.button("📜 Ver Histórico", key=f"aud_{i['id']}", use_container_width=True):
-                                        st.session_state["view_audit_id"] = i["id"]
-                                        st.rerun()
-                                        
-                                    st.markdown("---") # Linha divisória para segurança
-                                    if st.button("🗑️ Excluir", key=f"del_{i['id']}", use_container_width=True, type="primary"):
-                                        st.session_state["confirm_delete_item_id"] = i["id"]
-                                        st.rerun()
+                                        if st.button("✏️ Editar", key=f"btn_ed_{i['id']}", use_container_width=True):
+                                            st.session_state["edit_item_id"] = i["id"]
+                                            st.rerun() # O rerun fecha o popover e limpa a tela para mostrar a edição
+                                            
+                                        if st.button("📜 Histórico", key=f"btn_aud_{i['id']}", use_container_width=True):
+                                            st.session_state["view_audit_id"] = i["id"]
+                                            st.rerun()
+                                            
+                                        st.markdown("---")
+                                        if st.button("🗑️ Excluir", key=f"btn_del_{i['id']}", use_container_width=True, type="primary"):
+                                            st.session_state["confirm_delete_item_id"] = i["id"]
+                                            st.rerun() # O menu some e a tela de confirmação aparece "limpa" embaixo
 
                             # --- RENDERIZAÇÃO DOS MODAIS IN-LINE (Sua lógica mantida) ---
                             
