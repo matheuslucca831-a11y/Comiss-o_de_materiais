@@ -6,6 +6,7 @@ from supabase import create_client
 from datetime import datetime, timedelta
 import bcrypt
 import extra_streamlit_components as stx
+import time
 
 # 1. Configurações de conexão
 url = "https://oudfbraxmwuskdnnlisf.supabase.co"
@@ -17,11 +18,30 @@ supabase = create_client(url, key)
 # O CookieManager precisa de uma chave fixa para não dar erro no F5
 cookie_manager = stx.CookieManager(key="cookie_manager_global")
 
+if "cookie_carregado" not in st.session_state:
+    time.sleep(0.5) # Meio segundo de espera na primeira carga
+    st.session_state["cookie_carregado"] = True
+
+
 # Inicialização global das variáveis de estado
 if "usuario_logado" not in st.session_state:
     st.session_state.usuario_logado = None
 if "nome_admin" not in st.session_state:
     st.session_state.nome_admin = ""
+
+cookies = cookie_manager.get_all()
+if cookies and "usuario_logado" in cookies and st.session_state.usuario_logado is None:
+    cookie_user = cookies["usuario_logado"]
+    try:
+        # Busca rápida para validar se o usuário do cookie ainda é válido
+        res = supabase.table("usuarios").select("usuario, nome_exibicao").eq("usuario", cookie_user).execute()
+        if res.data:
+            st.session_state.usuario_logado = res.data[0]["usuario"]
+            st.session_state.nome_admin = res.data[0]["nome_exibicao"]
+            st.rerun()
+    except:
+        pass
+
 
 def gerar_senha_inicial(senha_numerica):
     hash_gerado = bcrypt.hashpw(str(senha_numerica).encode('utf-8'), bcrypt.gensalt())
@@ -33,8 +53,10 @@ def verificar_hash(senha, hash_db):
 # --- 3. DEFINIÇÃO DAS FUNÇÕES DE INTERFACE ---
 
 def tela_login():
-    # 1. Tenta recuperar os cookies salvos no navegador (ESSENCIAL PARA O F5)
+    # 1. Tenta recuperar os cookies
     cookies = cookie_manager.get_all()
+    # Debug opcional: st.write(cookies) # Se quiser ver se o cookie aparece
+    
     cookie_user = cookies.get("usuario_logado")
     
     # 2. Se o cookie existe e o estado está vazio, loga automaticamente
@@ -49,7 +71,7 @@ def tela_login():
         except Exception:
             pass 
 
-    # 3. Se NÃO estiver logado, mostra o formulário e PARA a execução do resto do app
+    # 3. Se NÃO estiver logado (porque não tem cookie ou falhou), mostra o formulário
     if st.session_state.usuario_logado is None:
         _, col2, _ = st.columns([1, 2, 1])
         with col2:
@@ -59,22 +81,28 @@ def tela_login():
                 input_pass = st.text_input("Senha", type="password", key="login_pass_input")
                 
                 if st.button("Acessar Sistema", use_container_width=True):
+                    # Validação Admin
                     if input_user == "admin" and input_pass == "1234":
                         st.session_state.usuario_logado = "admin"
                         st.session_state.nome_admin = "Administrador Master"
-                        cookie_manager.set("usuario_logado", "admin", expires_at=datetime.now() + timedelta(days=1))
+                        # SALVA NO COOKIE
+                        cookie_manager.set("usuario_logado", "admin", expires_at=datetime.now() + timedelta(days=7))
                         st.rerun()
+                    # Validação Supabase
                     else:
                         res = supabase.table("usuarios").select("*").eq("usuario", input_user).execute()
-                        if res.data and verificar_hash(input_pass, res.data[0]["senha_hash"]):
+                        if res.data and bcrypt.checkpw(input_pass.encode('utf-8'), res.data[0]["senha_hash"].encode('utf-8')):
                             u = res.data[0]
                             st.session_state.usuario_logado = u["usuario"]
                             st.session_state.nome_admin = u["nome_exibicao"]
-                            cookie_manager.set("usuario_logado", u["usuario"], expires_at=datetime.now() + timedelta(days=1))
+                            # SALVA NO COOKIE
+                            cookie_manager.set("usuario_logado", u["usuario"], expires_at=datetime.now() + timedelta(days=7))
                             st.rerun()
                         else:
                             st.error("Usuário ou senha inválidos.")
-        st.stop() # Mata a execução aqui se não logar
+        
+        # IMPORTANTE: se não logou, para o app aqui para não carregar as abas
+        st.stop()
 
 def sidebar_usuario():
     # Só desenha a sidebar se houver alguém logado
