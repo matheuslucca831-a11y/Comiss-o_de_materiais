@@ -86,13 +86,25 @@ def tela_login():
         st.stop()
 
 def sidebar_usuario():
-    if st.session_state.usuario_logado:
+    if st.session_state.get("usuario_logado"):
         st.sidebar.markdown(f"👤 **{st.session_state.nome_admin}**")
-        if st.sidebar.button("Sair"):
-            cookie_manager.delete("usuario_logado")
+        
+        # Usamos uma chave (key) única para evitar conflitos de renderização
+        if st.sidebar.button("Sair", key="btn_logout_sidebar"):
+            # 1. Limpa os Cookies (Opcional: Verifique se o cookie_manager está ok)
+            try:
+                cookie_manager.delete("usuario_logado")
+            except:
+                pass
+            
+            # 2. LIMPEZA TOTAL do Session State (Isso é o que garante o logout)
+            # Em vez de setar para None, limpamos para o app resetar as abas
             st.session_state.usuario_logado = None
             st.session_state.nome_admin = ""
-            time.sleep(0.2)
+            
+            # 3. Feedback visual e reinicialização
+            st.sidebar.success("Saindo...")
+            time.sleep(0.5) # Aumentamos um pouco para o navegador processar o cookie.delete
             st.rerun()
 
 # --- 5. EXECUÇÃO ---
