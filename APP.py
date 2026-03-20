@@ -15,6 +15,24 @@ supabase = create_client(url, key)
 # --- 2. FUNÇÕES DE SEGURANÇA (Adicionei a verificar_hash que faltava) ---
 # Inicializa o gerenciador de cookies
 
+# Inicialização global de segurança
+if "usuario_logado" not in st.session_state:
+    st.session_state.usuario_logado = None
+if "nome_admin" not in st.session_state:
+    st.session_state.nome_admin = ""
+
+def sidebar_usuario():
+    # Usar .get() evita o AttributeError se a chave não existir
+    usuario = st.session_state.get("usuario_logado")
+    
+    if usuario:
+        st.sidebar.markdown(f"👤 **{st.session_state.get('nome_admin', 'Usuário')}**")
+        if st.sidebar.button("Sair"):
+            cookie_manager.delete("usuario_logado")
+            st.session_state.usuario_logado = None
+            st.session_state.nome_admin = ""
+            st.rerun()
+
 
 cookie_manager = stx.CookieManager(key="cookie_manager_global")
 
