@@ -100,8 +100,7 @@ sidebar_usuario()
 # O RESTANTE DO SEU CÓDIGO (Abas, etc) CONTINUA AQUI...
 
 
-# Agora sim o restante do seu app...
-st.write(f"Bem-vindo, {st.session_state.nome_admin}!")
+
 
 def gerar_senha_inicial(senha_numerica):
     hash_gerado = bcrypt.hashpw(str(senha_numerica).encode('utf-8'), bcrypt.gensalt())
