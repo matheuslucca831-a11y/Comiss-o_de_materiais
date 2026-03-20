@@ -24,14 +24,14 @@ def verificar_hash(senha, hash_db):
 # --- 3. TELA DE LOGIN ---
 
 def tela_login():
-    if "usuario_logado" not in st.session_state:
-        st.session_state.usuario_logado = None
-        st.session_state.nome_admin = ""
-
     if matricula == "admin" and senha == "1234":
     st.session_state.usuario_logado = "admin"
     st.session_state.nome_admin = "Administrador Master"
     st.rerun()
+    
+    if "usuario_logado" not in st.session_state:
+        st.session_state.usuario_logado = None
+        st.session_state.nome_admin = ""
 
     if st.session_state.usuario_logado is None:
         # Centraliza a tela de login
