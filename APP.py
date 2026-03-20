@@ -5,6 +5,7 @@ import streamlit as st
 from supabase import create_client
 from datetime import datetime, timedelta
 import bcrypt
+import extra_streamlit_components as stx
 
 # 1. Configurações de conexão
 url = "https://oudfbraxmwuskdnnlisf.supabase.co"
@@ -12,6 +13,8 @@ key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im91
 supabase = create_client(url, key)
 
 # --- 2. FUNÇÕES DE SEGURANÇA (Adicionei a verificar_hash que faltava) ---
+# Inicializa o gerenciador de cookies
+cookie_manager = stx.CookieManager()
 
 def gerar_senha_inicial(senha_numerica):
     hash_gerado = bcrypt.hashpw(str(senha_numerica).encode('utf-8'), bcrypt.gensalt())
@@ -26,46 +29,34 @@ def verificar_hash(senha, hash_db):
 # --- 3. TELA DE LOGIN ---
 
 def tela_login():
-    if "usuario_logado" not in st.session_state:
-        st.session_state.usuario_logado = None
-        st.session_state.nome_admin = ""
+    # 1. Tenta recuperar o cookie de login já existente
+    cookie_usuario = cookie_manager.get(cookie="usuario_logado")
+    
+    if cookie_usuario and "usuario_logado" not in st.session_state:
+        # Se o cookie existe mas o session_state sumiu (F5), restaura o estado
+        st.session_state.usuario_logado = cookie_usuario
+        # Aqui você faria uma busca rápida no Supabase para recuperar o nome_admin pelo id do cookie
+        st.rerun()
 
-    if st.session_state.usuario_logado is None:
-        # Centraliza a tela de login
-        _, col2, _ = st.columns([1,2,1]) 
-        with col2:
-            st.markdown("### 🏥 Controle de Materiais - Login")
-            with st.container(border=True):
-                matricula = st.text_input("Matrícula (Usuário)")
-                senha = st.text_input("Senha Numérica", type="password", help="Digite apenas números")
+    if "usuario_logado" not in st.session_state or st.session_state.usuario_logado is None:
+        # ... (seu código de colunas e inputs) ...
+        
+        if st.button("Acessar Sistema"):
+            # ... (sua lógica de verificação de hash que já funciona) ...
+            
+            if verificar_hash(senha, user_data["senha_hash"]):
+                # SALVA NO COOKIE (Dura 1 dia, por exemplo)
+                cookie_manager.set("usuario_logado", user_data["usuario"], expires_at=datetime.now() + timedelta(days=1))
                 
-                if st.button("Acessar Sistema", use_container_width=True):
-                    # 1. TESTE DE EMERGÊNCIA (Caso o banco falhe ou esteja vazio)
-                    if matricula == "admin" and senha == "1234":
-                        st.session_state.usuario_logado = "admin"
-                        st.session_state.nome_admin = "Administrador Master"
-                        st.rerun()
-                    
-                    # 2. VALIDAÇÃO NORMAL
-                    elif not matricula or not senha:
-                        st.warning("Preencha todos os campos.")
-                    elif not senha.isdigit():
-                        st.error("A senha deve conter apenas números!")
-                    else:
-                        res = supabase.table("usuarios").select("*").eq("usuario", matricula).execute()
-                        
-                        if res.data:
-                            user_data = res.data[0]
-                            if verificar_hash(senha, user_data["senha_hash"]):
-                                st.session_state.usuario_logado = user_data["usuario"]
-                                st.session_state.nome_admin = user_data["nome_exibicao"]
-                                st.success(f"Conectado como: {user_data['nome_exibicao']}")
-                                st.rerun()
-                            else:
-                                st.error("Senha incorreta.")
-                        else:
-                            st.error("Matrícula não cadastrada.")
-        st.stop() # Bloqueia o app até logar
+                st.session_state.usuario_logado = user_data["usuario"]
+                st.session_state.nome_admin = user_data["nome_exibicao"]
+                st.rerun()
+
+def botao_sair():
+    if st.sidebar.button("Sair"):
+        cookie_manager.delete("usuario_logado")
+        st.session_state.usuario_logado = None
+        st.rerun()
 
 # --- 4. EXECUÇÃO ---
 
