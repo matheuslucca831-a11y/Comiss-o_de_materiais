@@ -10,30 +10,34 @@ import time
 
 # 1. Configurações de conexão
 url = "https://oudfbraxmwuskdnnlisf.supabase.co"
-key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im91ZGZicmF4bXd1c2tkbm5saXNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4Nzc5NzQsImV4cCI6MjA4OTQ1Mzk3NH0.QnL67maBxqsfgm4xHmLBYcqPbQ99swjHw3OzndSM9qA"
+key = "SUA_KEY_AQUI"
 supabase = create_client(url, key)
 
 # --- 2. INICIALIZAÇÃO DE SEGURANÇA E COOKIES ---
 
-# O CookieManager precisa de uma chave fixa para não dar erro no F5
+# 1. Instancia o manager APENAS UMA VEZ no topo
 cookie_manager = stx.CookieManager(key="cookie_manager_global")
 
+# 2. Delay necessário para o navegador enviar os cookies ao Python
 if "cookie_carregado" not in st.session_state:
-    time.sleep(0.5) # Meio segundo de espera na primeira carga
+    time.sleep(0.5) 
     st.session_state["cookie_carregado"] = True
 
-
-# Inicialização global das variáveis de estado
+# 3. Inicialização global das variáveis de estado
 if "usuario_logado" not in st.session_state:
     st.session_state.usuario_logado = None
 if "nome_admin" not in st.session_state:
     st.session_state.nome_admin = ""
 
+# --- 3. LÓGICA DE PERSISTÊNCIA (Roda sempre que a página carrega) ---
+
+# Chamamos get_all() aqui FORA das funções para evitar chaves duplicadas
 cookies = cookie_manager.get_all()
+
+# Se detectarmos o cookie e o usuário não estiver logado no state:
 if cookies and "usuario_logado" in cookies and st.session_state.usuario_logado is None:
     cookie_user = cookies["usuario_logado"]
     try:
-        # Busca rápida para validar se o usuário do cookie ainda é válido
         res = supabase.table("usuarios").select("usuario, nome_exibicao").eq("usuario", cookie_user).execute()
         if res.data:
             st.session_state.usuario_logado = res.data[0]["usuario"]
@@ -42,36 +46,13 @@ if cookies and "usuario_logado" in cookies and st.session_state.usuario_logado i
     except:
         pass
 
-
-def gerar_senha_inicial(senha_numerica):
-    hash_gerado = bcrypt.hashpw(str(senha_numerica).encode('utf-8'), bcrypt.gensalt())
-    return hash_gerado.decode('utf-8')
+# --- 4. DEFINIÇÃO DAS FUNÇÕES (Sem chamadas internas de cookies) ---
 
 def verificar_hash(senha, hash_db):
     return bcrypt.checkpw(senha.encode('utf-8'), hash_db.encode('utf-8'))
 
-# --- 3. DEFINIÇÃO DAS FUNÇÕES DE INTERFACE ---
-
 def tela_login():
-    # 1. Tenta recuperar os cookies
-    cookies = cookie_manager.get_all()
-    # Debug opcional: st.write(cookies) # Se quiser ver se o cookie aparece
-    
-    cookie_user = cookies.get("usuario_logado")
-    
-    # 2. Se o cookie existe e o estado está vazio, loga automaticamente
-    if cookie_user and st.session_state.usuario_logado is None:
-        try:
-            res = supabase.table("usuarios").select("usuario, nome_exibicao").eq("usuario", cookie_user).execute()
-            if res.data:
-                u = res.data[0]
-                st.session_state.usuario_logado = u["usuario"]
-                st.session_state.nome_admin = u["nome_exibicao"]
-                st.rerun()
-        except Exception:
-            pass 
-
-    # 3. Se NÃO estiver logado (porque não tem cookie ou falhou), mostra o formulário
+    # Se já logou via persistência acima, essa função não faz nada
     if st.session_state.usuario_logado is None:
         _, col2, _ = st.columns([1, 2, 1])
         with col2:
@@ -85,27 +66,22 @@ def tela_login():
                     if input_user == "admin" and input_pass == "1234":
                         st.session_state.usuario_logado = "admin"
                         st.session_state.nome_admin = "Administrador Master"
-                        # SALVA NO COOKIE
                         cookie_manager.set("usuario_logado", "admin", expires_at=datetime.now() + timedelta(days=7))
                         st.rerun()
                     # Validação Supabase
                     else:
                         res = supabase.table("usuarios").select("*").eq("usuario", input_user).execute()
-                        if res.data and bcrypt.checkpw(input_pass.encode('utf-8'), res.data[0]["senha_hash"].encode('utf-8')):
+                        if res.data and verificar_hash(input_pass, res.data[0]["senha_hash"]):
                             u = res.data[0]
                             st.session_state.usuario_logado = u["usuario"]
                             st.session_state.nome_admin = u["nome_exibicao"]
-                            # SALVA NO COOKIE
                             cookie_manager.set("usuario_logado", u["usuario"], expires_at=datetime.now() + timedelta(days=7))
                             st.rerun()
                         else:
                             st.error("Usuário ou senha inválidos.")
-        
-        # IMPORTANTE: se não logou, para o app aqui para não carregar as abas
         st.stop()
 
 def sidebar_usuario():
-    # Só desenha a sidebar se houver alguém logado
     if st.session_state.usuario_logado:
         st.sidebar.markdown(f"👤 **{st.session_state.nome_admin}**")
         if st.sidebar.button("Sair"):
@@ -114,16 +90,23 @@ def sidebar_usuario():
             st.session_state.nome_admin = ""
             st.rerun()
 
-# --- 4. FLUXO DE EXECUÇÃO (A ORDEM IMPORTA!) ---
+# --- 5. EXECUÇÃO ---
 
-# Primeiro validamos o login. Se não tiver logado, o st.stop() trava aqui.
 tela_login()
-
-# Se passar do login, desenha a sidebar
 sidebar_usuario()
+
+# O RESTANTE DO SEU CÓDIGO (Abas, etc) CONTINUA AQUI...
+
 
 # Agora sim o restante do seu app...
 st.write(f"Bem-vindo, {st.session_state.nome_admin}!")
+
+def gerar_senha_inicial(senha_numerica):
+    hash_gerado = bcrypt.hashpw(str(senha_numerica).encode('utf-8'), bcrypt.gensalt())
+    return hash_gerado.decode('utf-8')
+
+def verificar_hash(senha, hash_db):
+    return bcrypt.checkpw(senha.encode('utf-8'), hash_db.encode('utf-8'))
 
 def limpar_input_unidade():
     st.session_state["input_create_unidade"] = ""
