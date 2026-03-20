@@ -1,58 +1,58 @@
 import pandas as pd
 import io
-from io import BytesIO
 import streamlit as st
+import time
 from supabase import create_client
 from datetime import datetime, timedelta
 import bcrypt
 import extra_streamlit_components as stx
-import time
 
 # 1. Configurações de conexão
 url = "https://oudfbraxmwuskdnnlisf.supabase.co"
-key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im91ZGZicmF4bXd1c2tkbm5saXNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4Nzc5NzQsImV4cCI6MjA4OTQ1Mzk3NH0.QnL67maBxqsfgm4xHmLBYcqPbQ99swjHw3OzndSM9qA"
+key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im91ZGZicmF4bXd1c2tkbm5saXNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4Nzc5NzQsImV4cCI6MjA4OTQ1Mzk3NH0.QnL67maBxqsfgm4xHmLBYcqPbQ99swjHw3OzndSM9qA""
 supabase = create_client(url, key)
 
 # --- 2. INICIALIZAÇÃO DE SEGURANÇA E COOKIES ---
 
-# 1. Instancia o manager APENAS UMA VEZ no topo
+# 1. Instancia o manager APENAS UMA VEZ
 cookie_manager = stx.CookieManager(key="cookie_manager_global")
 
-# 2. Delay necessário para o navegador enviar os cookies ao Python
-if "cookie_carregado" not in st.session_state:
-    time.sleep(0.5) 
-    st.session_state["cookie_carregado"] = True
-
-# 3. Inicialização global das variáveis de estado
+# 2. Inicialização global das variáveis de estado
 if "usuario_logado" not in st.session_state:
     st.session_state.usuario_logado = None
 if "nome_admin" not in st.session_state:
     st.session_state.nome_admin = ""
 
-# --- 3. LÓGICA DE PERSISTÊNCIA (Roda sempre que a página carrega) ---
+# --- 3. LÓGICA DE PERSISTÊNCIA REFORÇADA ---
 
-# Chamamos get_all() aqui FORA das funções para evitar chaves duplicadas
+# Pegamos os cookies
 cookies = cookie_manager.get_all()
 
-# Se detectarmos o cookie e o usuário não estiver logado no state:
-if cookies and "usuario_logado" in cookies and st.session_state.usuario_logado is None:
-    cookie_user = cookies["usuario_logado"]
-    try:
-        res = supabase.table("usuarios").select("usuario, nome_exibicao").eq("usuario", cookie_user).execute()
-        if res.data:
-            st.session_state.usuario_logado = res.data[0]["usuario"]
-            st.session_state.nome_admin = res.data[0]["nome_exibicao"]
-            st.rerun()
-    except:
-        pass
+# Se o componente ainda está carregando (retorna None), paramos o script aqui 
+# e esperamos o próximo ciclo automático (que acontece em milissegundos)
+if cookies is None:
+    st.info("Carregando sistema segura...")
+    st.stop()
 
-# --- 4. DEFINIÇÃO DAS FUNÇÕES (Sem chamadas internas de cookies) ---
+# Se o usuário não está logado no Session State, mas existe o cookie no navegador:
+if st.session_state.usuario_logado is None and "usuario_logado" in cookies:
+    usuario_id = cookies["usuario_logado"]
+    if usuario_id:
+        try:
+            res = supabase.table("usuarios").select("usuario, nome_exibicao").eq("usuario", usuario_id).execute()
+            if res.data:
+                st.session_state.usuario_logado = res.data[0]["usuario"]
+                st.session_state.nome_admin = res.data[0]["nome_exibicao"]
+                st.rerun()
+        except:
+            pass
+
+# --- 4. FUNÇÕES DE INTERFACE ---
 
 def verificar_hash(senha, hash_db):
     return bcrypt.checkpw(senha.encode('utf-8'), hash_db.encode('utf-8'))
 
 def tela_login():
-    # Se já logou via persistência acima, essa função não faz nada
     if st.session_state.usuario_logado is None:
         _, col2, _ = st.columns([1, 2, 1])
         with col2:
@@ -62,13 +62,14 @@ def tela_login():
                 input_pass = st.text_input("Senha", type="password", key="login_pass_input")
                 
                 if st.button("Acessar Sistema", use_container_width=True):
-                    # Validação Admin
+                    # Login Admin Master
                     if input_user == "admin" and input_pass == "1234":
                         st.session_state.usuario_logado = "admin"
                         st.session_state.nome_admin = "Administrador Master"
                         cookie_manager.set("usuario_logado", "admin", expires_at=datetime.now() + timedelta(days=7))
+                        time.sleep(0.2) # Pequeno delay para garantir a gravação do cookie
                         st.rerun()
-                    # Validação Supabase
+                    # Login Supabase
                     else:
                         res = supabase.table("usuarios").select("*").eq("usuario", input_user).execute()
                         if res.data and verificar_hash(input_pass, res.data[0]["senha_hash"]):
@@ -76,6 +77,7 @@ def tela_login():
                             st.session_state.usuario_logado = u["usuario"]
                             st.session_state.nome_admin = u["nome_exibicao"]
                             cookie_manager.set("usuario_logado", u["usuario"], expires_at=datetime.now() + timedelta(days=7))
+                            time.sleep(0.2)
                             st.rerun()
                         else:
                             st.error("Usuário ou senha inválidos.")
@@ -88,10 +90,10 @@ def sidebar_usuario():
             cookie_manager.delete("usuario_logado")
             st.session_state.usuario_logado = None
             st.session_state.nome_admin = ""
+            time.sleep(0.2)
             st.rerun()
 
 # --- 5. EXECUÇÃO ---
-
 tela_login()
 sidebar_usuario()
 
