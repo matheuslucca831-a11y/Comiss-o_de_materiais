@@ -584,18 +584,25 @@ with aba3:
     if "edit_material" in st.session_state:
         @st.dialog("✏️ Editar Material")
         def modal_edit():
+            # Pega o material e já remove da sessão para ele não abrir no próximo rerun sozinho
             mat = st.session_state["edit_material"]
+            
             novo_nome = st.text_input("Alterar nome para:", value=mat["nome"])
             
-            if st.button("Salvar Alteração", type="primary", use_container_width=True):
+            col1, col2 = st.columns(2)
+            if col1.button("Salvar", type="primary", use_container_width=True):
                 if novo_nome:
                     supabase.table("materiais").update({"nome": novo_nome.strip()}).eq("id", mat["id"]).execute()
                     st.cache_data.clear()
+                    # LIMPEZA CRÍTICA AQUI
                     del st.session_state["edit_material"]
                     st.rerun()
-            if st.button("Sair", use_container_width=True):
+                    
+            if col2.button("Sair", use_container_width=True):
+                # LIMPEZA CRÍTICA AQUI
                 del st.session_state["edit_material"]
                 st.rerun()
+                
         modal_edit()
 
 
