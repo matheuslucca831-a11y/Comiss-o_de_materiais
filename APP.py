@@ -705,12 +705,16 @@ with aba4:
                                 }).execute()
                                 
                                 if res_item.data:
-                                    # ADICIONE ESTE INSERT AQUI PARA O LOG DE CRIAÇÃO
+                                    # 1. Pegamos o ID do item recém criado
                                     novo_id = res_item.data[0]["id"]
+                                    # 2. Pegamos o usuário (ajuste para st.session_state['usuario'])
+                                    user_atual = st.session_state.get("usuario_nome", "Matheus Lucca") 
+                                
+                                    # 3. Gravamos o primeiro log
                                     supabase.table("historico_alteracoes").insert({
                                         "item_id": novo_id,
-                                        "detalhes": f"Item criado com status {status_item}",
-                                        "usuario": usuario_logado # Certifique-se que esta coluna existe no Supabase
+                                        "detalhes": f"Item cadastrado com status {status_item}",
+                                        "usuario": user_atual  # <--- Garanta que a coluna 'usuario' existe no banco
                                     }).execute()
                                     
                                     st.cache_data.clear()
@@ -878,12 +882,14 @@ with aba4:
                                                 usuario_logado = st.session_state.get("usuario_nome", "Usuário Desconhecido")
                                                 
                                                 detalhe_log = f"Editado: Pat {n_pat}, Status {n_sta}"
+                                                user_atual = st.session_state.get("usuario_nome", "Matheus Lucca")
+                                                
                                                 supabase.table("historico_alteracoes").insert({
                                                     "item_id": i["id"],
                                                     "detalhes": detalhe_log,
-                                                    "usuario": usuario_logado # <--- ADICIONE ESTA LINHA
+                                                    "usuario": user_atual # <--- Isso registra quem editou
                                                 }).execute()
-                                                                                    
+                                                                                                                                    
                                                 # 3. LIMPA O CACHE E O ESTADO PARA ATUALIZAR A TELA
                                                 st.cache_data.clear()
                                                 st.session_state.pop("edit_item_id", None)
