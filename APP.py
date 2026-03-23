@@ -702,8 +702,12 @@ with aba4:
                                 }).execute()
                                 
                                 if res_item.data:
+                                    # --- CORREÇÃO DO BUG AQUI ---
+                                    # Limpamos o cache SEMPRE que o item é gravado com sucesso
+                                    st.cache_data.clear() 
+                                    
                                     status_load.update(label="✅ Cadastro concluído!", state="complete")
-                                    st.toast("✅ Item salvo!", icon='🚀')
+                                    st.toast("✅ Item salvo e consulta atualizada!", icon='🚀')
                                     st.rerun()
                             else:
                                 status_load.update(label="⚠️ Erro: Material não selecionado.", state="error")
