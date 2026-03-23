@@ -360,136 +360,123 @@ with aba1:
             st.rerun()
             
 with aba2:
-    st.header("🏢 Ambientes")
+    st.subheader("🏢 Gestão de Ambientes e Salas")
 
-    # 1. Inicializa o contador de reset específico para Ambientes
-    if "reset_amb_count" not in st.session_state:
-        st.session_state.reset_amb_count = 0
-
-    # -------------------------
-    # BUSCAR UNIDADE (USANDO CACHE)
-    # -------------------------
-    busca_unidade = st.text_input("🔎 Buscar unidade", key="busca_unidade_amb")
-    unidades_data = get_unidades() 
-
+    # --- 1. SELEÇÃO DE UNIDADE (DESIGN LIMPO) ---
+    unidades_data = get_unidades()
+    
+    col_busca, col_select = st.columns([1, 2])
+    busca_unidade = col_busca.text_input("🔎 Filtrar Unidade", placeholder="Ex: USF...", key="busca_unidade_amb")
+    
     unidades_filtradas = unidades_data
     if busca_unidade:
         unidades_filtradas = [u for u in unidades_data if busca_unidade.lower() in u["nome"].lower()]
 
-    if not unidades_filtradas:
-        st.warning("Nenhuma unidade encontrada")
-    else:
-        unidade_sel = st.selectbox(
-            "Selecione a unidade",
-            unidades_filtradas,
-            format_func=lambda x: x["nome"],
-            key="sb_unidade_amb"
-        )
+    unidade_sel = col_select.selectbox(
+        "Selecione a Unidade para gerenciar os ambientes",
+        unidades_filtradas,
+        format_func=lambda x: x["nome"],
+        index=None,
+        placeholder="Escolha uma unidade...",
+        key="sb_unidade_amb"
+    )
 
-        # -------------------------
-        # CRIAR AMBIENTE
-        # -------------------------
-        st.subheader("➕ Novo Ambiente")
-
-        # 2. Chave dinâmica para o input de nome do ambiente
-        chave_amb = f"input_nome_amb_{st.session_state.reset_amb_count}"
-        nome_ambiente = st.text_input("Nome do ambiente", key=chave_amb)
-
-        if st.button("Criar Ambiente"):
-            if not nome_ambiente:
-                st.warning("Digite o nome do ambiente")
-            else:
-                try:
-                    supabase.table("ambientes").insert({
-                        "nome": nome_ambiente.strip(),
-                        "unidade_id": unidade_sel["id"]
-                    }).execute()
-
-                    st.success(f"✅ Ambiente '{nome_ambiente}' criado na unidade {unidade_sel['nome']}!")
-                    
-                    # 3. O Pulo do Gato: Incrementa o contador para limpar o campo
-                    st.session_state.reset_amb_count += 1
-                    
-                    st.cache_data.clear()
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Erro ao salvar: {e}")
-
-        # -------------------------
-        # LISTAR AMBIENTES DA UNIDADE (USANDO CACHE)
-        # -------------------------
-        st.subheader("📋 Ambientes da unidade")
-
-        # Usando a função com cache
-        todos_ambientes = get_ambientes()
+    if unidade_sel:
+        st.divider()
         
-        # Filtramos em memória os ambientes que pertencem à unidade selecionada
+        # --- 2. ÁREA DE NOVO AMBIENTE (EXPANDER COMPACTO) ---
+        with st.expander(f"➕ Cadastrar Novo Ambiente em {unidade_sel['nome']}", expanded=False):
+            if "reset_amb_count" not in st.session_state:
+                st.session_state.reset_amb_count = 0
+            
+            c_in, c_btn = st.columns([3, 1])
+            chave_amb = f"input_nome_amb_{st.session_state.reset_amb_count}"
+            nome_ambiente = c_in.text_input("Nome do Ambiente", placeholder="Ex: Consultório 01", key=chave_amb, label_visibility="collapsed")
+            
+            if c_btn.button("Criar", use_container_width=True, type="primary"):
+                if not nome_ambiente:
+                    st.toast("⚠️ Digite o nome do ambiente", icon="🏢")
+                else:
+                    try:
+                        supabase.table("ambientes").insert({
+                            "nome": nome_ambiente.strip(),
+                            "unidade_id": unidade_sel["id"]
+                        }).execute()
+                        st.session_state.reset_amb_count += 1
+                        st.cache_data.clear()
+                        st.success("Ambiente criado com sucesso!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro: {e}")
+
+        # --- 3. LISTAGEM DE AMBIENTES EM CARDS ---
+        todos_ambientes = get_ambientes()
         ambientes_da_unidade = [a for a in todos_ambientes if a["unidade_id"] == unidade_sel["id"]]
 
+        # Métrica rápida
+        st.markdown(f"#### 📋 Ambientes cadastrados ({len(ambientes_da_unidade)})")
+
         if not ambientes_da_unidade:
-            st.info("Nenhum ambiente cadastrado")
+            st.info("Esta unidade ainda não possui ambientes cadastrados.")
         else:
+            # Grid de Ambientes
             for a in ambientes_da_unidade:
-                col1, col2, col3 = st.columns([6,1,1])
+                with st.container(border=True):
+                    c1, c2, c3 = st.columns([6, 1, 1])
+                    with c1:
+                        st.markdown(f"**📍 {a['nome'].upper()}**")
+                    with c2:
+                        if st.button("✏️", key=f"edit_amb_{a['id']}", help="Editar nome"):
+                            st.session_state["edit_ambiente"] = a
+                            st.rerun()
+                    with c3:
+                        if st.button("🗑️", key=f"del_amb_{a['id']}", help="Excluir ambiente"):
+                            st.session_state["confirm_delete_ambiente"] = a
+                            st.rerun()
 
-                with col1:
-                    st.write(a["nome"])
-
-                with col2:
-                    if st.button("✏️", key=f"edit_amb_{a['id']}"):
-                        st.session_state["edit_ambiente"] = a
-
-                with col3:
-                    if st.button("🗑️", key=f"del_amb_{a['id']}"):
-                        st.session_state["confirm_delete_ambiente"] = a
-
-    # -------------------------
-    # CONFIRMAR EXCLUSÃO
-    # -------------------------
+    # --- 4. MODAIS PROFISSIONAIS (DIALOGS) ---
+    
+    # MODAL DE EXCLUSÃO
     if "confirm_delete_ambiente" in st.session_state:
-        amb = st.session_state["confirm_delete_ambiente"]
-        st.warning(f"O ambiente '{amb['nome']}' será excluído com todos os itens.")
-
-        col1, col2 = st.columns(2)
-
-        with col1:
-            if st.button("Sim, excluir", key="btn_conf_del_amb"):
+        @st.dialog("⚠️ Atenção: Excluir Ambiente")
+        def modal_del_amb():
+            amb = st.session_state["confirm_delete_ambiente"]
+            st.write(f"Você tem certeza que deseja excluir o ambiente **{amb['nome']}**?")
+            st.error("Todos os itens de inventário dentro deste ambiente também serão apagados!")
+            
+            if st.button("Confirmar Exclusão", type="primary", use_container_width=True):
                 try:
-                    # deletar itens
                     supabase.table("itens_inventario").delete().eq("ambiente_id", amb["id"]).execute()
-                    # deletar ambiente
                     supabase.table("ambientes").delete().eq("id", amb["id"]).execute()
-
-                    st.success("Ambiente excluído!")
-                    # Limpa o cache após exclusão
                     st.cache_data.clear()
                     del st.session_state["confirm_delete_ambiente"]
                     st.rerun()
-
                 except Exception as e:
-                    st.error(f"Erro: {e}")
-
-        with col2:
-            if st.button("Cancelar", key="btn_canc_del_amb"):
+                    st.error(f"Erro ao excluir: {e}")
+            
+            if st.button("Cancelar", use_container_width=True):
                 del st.session_state["confirm_delete_ambiente"]
                 st.rerun()
+        modal_del_amb()
 
-    # -------------------------
-    # EDITAR AMBIENTE
-    # -------------------------
+    # MODAL DE EDIÇÃO
     if "edit_ambiente" in st.session_state:
-        amb = st.session_state["edit_ambiente"]
-        st.subheader("✏️ Editar Ambiente")
-        novo_nome = st.text_input("Novo nome", value=amb["nome"], key="input_edit_amb")
-
-        if st.button("Salvar alteração", key="btn_save_edit_amb"):
-            supabase.table("ambientes").update({"nome": novo_nome}).eq("id", amb["id"]).execute()
+        @st.dialog("✏️ Editar Nome do Ambiente")
+        def modal_edit_amb():
+            amb = st.session_state["edit_ambiente"]
+            novo_nome = st.text_input("Novo nome:", value=amb["nome"])
             
-            st.success("Atualizado!")
-            # Limpa o cache após edição
-            st.cache_data.clear()
-            del st.session_state["edit_ambiente"]
-            st.rerun()
+            if st.button("Salvar Alteração", type="primary", use_container_width=True):
+                if novo_nome:
+                    supabase.table("ambientes").update({"nome": novo_nome.strip()}).eq("id", amb["id"]).execute()
+                    st.cache_data.clear()
+                    del st.session_state["edit_ambiente"]
+                    st.rerun()
+            
+            if st.button("Sair", use_container_width=True):
+                del st.session_state["edit_ambiente"]
+                st.rerun()
+        modal_edit_amb()
 
 with aba3:
     st.subheader("🛠️ Gestão do Catálogo de Materiais")
