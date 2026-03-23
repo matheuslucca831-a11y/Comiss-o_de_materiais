@@ -213,21 +213,25 @@ with aba1:
             st.session_state.reset_count = 0
         
         c_in, c_btn = st.columns([3, 1])
-        chave_unidade = f"input_unidade_{st.session_state.reset_count}"
-        nome_unidade = c_in.text_input("Nome da unidade", placeholder="Ex: USF Boiçucanga", key=chave_unidade, label_visibility="collapsed")
         
-        if c_btn.button("Criar", use_container_width=True, type="primary"):
-            unidades_data = get_unidades() # Pega dados atuais para conferir se existe
+        # Chaves dinâmicas para evitar o erro de Duplicate Id
+        chave_input = f"input_unidade_{st.session_state.reset_count}"
+        chave_botao = f"btn_criar_unidade_{st.session_state.reset_count}" # A chave do botão também muda
+        
+        nome_unidade = c_in.text_input("Nome da unidade", placeholder="Ex: USF Boiçucanga", key=chave_input, label_visibility="collapsed")
+        
+        if c_btn.button("Criar", use_container_width=True, type="primary", key=chave_botao):
+            unidades_data = get_unidades() 
             if not nome_unidade:
-                st.toast("⚠️ Digite o nome da unidade", icon="🏥")
+                st.toast("⚠️ Digite o nome da unidade")
             elif any(u["nome"].lower() == nome_unidade.lower() for u in unidades_data):
                 st.error("Esta unidade já existe.")
             else:
                 try:
                     supabase.table("unidades").insert({"nome": nome_unidade.strip()}).execute()
-                    st.session_state.reset_count += 1
+                    st.session_state.reset_count += 1 # Isso reseta o ID de ambos na próxima rodada
                     st.cache_data.clear()
-                    st.success(f"Unidade criada!")
+                    st.success("Unidade criada!")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Erro: {e}")
