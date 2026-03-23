@@ -791,34 +791,37 @@ with aba4:
                                     st.caption(f"📝 {i['observacao']}")
                                     
                             with col_acoes:
+                                # O popover fechará obrigatoriamente quando o st.rerun() for chamado
                                 with st.popover("⚙️", help="Ações"):
                                     st.write(f"**Item:** {i['mat_nome']}")
                                     
-                                    # EDITAR
+                                    # --- BOTAO EDITAR ---
                                     if st.button("✏️ Editar", key=f"btn_ed_{i['id']}", use_container_width=True):
                                         st.session_state["edit_item_id"] = i["id"]
-                                        # Remove o histórico para não abrir os dois juntos
+                                        # Remove o ID do histórico para evitar conflito de telas abertas
                                         st.session_state.pop("view_audit_id", None) 
-                                        st.rerun() # O rerun fecha o popover obrigatoriamente
+                                        # O RERUN é o que faz a 'telinha' sumir na hora
+                                        st.rerun() 
                                         
-                                    # HISTÓRICO
+                                    # --- BOTAO HISTÓRICO ---
                                     if st.button("📜 Histórico", key=f"btn_aud_{i['id']}", use_container_width=True):
                                         st.session_state["view_audit_id"] = i["id"]
-                                        # Remove a edição para não abrir os dois juntos
+                                        # Remove o ID de edição para limpar a interface
                                         st.session_state.pop("edit_item_id", None)
-                                        st.rerun() # O rerun fecha o popover obrigatoriamente
+                                        # O RERUN é o que faz a 'telinha' sumir na hora
+                                        st.rerun()
                                         
                                     st.markdown("---")
                                     
-                                    # EXCLUIR
+                                    # --- BOTAO EXCLUIR ---
                                     if st.button("🗑️ Excluir", key=f"btn_del_{i['id']}", use_container_width=True, type="primary"):
+                                        # Deleta primeiro o histórico (devido à Foreign Key) e depois o item
                                         supabase.table("historico_alteracoes").delete().eq("item_id", i["id"]).execute()
                                         supabase.table("itens_inventario").delete().eq("id", i["id"]).execute()
+                                        
+                                        # Limpa o cache para a consulta atualizar
                                         st.cache_data.clear()
-                                        # Limpa estados para garantir que a tela suba limpa
-                                        st.session_state.pop("edit_item_id", None)
-                                        st.session_state.pop("view_audit_id", None)
-                                        st.toast(f"✅ Item excluído!", icon="🗑️")
+                                        st.toast(f"✅ '{i['mat_nome']}' removido!", icon="🗑️")
                                         st.rerun()
 
                             # --- RENDERIZAÇÃO DOS MODAIS DE EDIÇÃO/HISTÓRICO ---
