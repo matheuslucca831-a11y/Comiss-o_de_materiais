@@ -920,70 +920,79 @@ with aba4:
 
 
 with aba5:
-    st.subheader("📊 Relatórios")
+    st.subheader("📊 Relatórios Avançados")
     
     if estrutura:
-        # 1. Preparar os dados para o Excel
+        # 1. Preparar os dados (Planilha plana é melhor para filtros)
         dados_excel = []
-        
         for unidade, ambientes_dict in estrutura.items():
-            # Linha da Unidade
-            dados_excel.append({
-                "Hierarquia": f"🏥 UNIDADE: {unidade.upper()}", 
-                "Status": "", 
-                "Patrimônio": "", 
-                "Observação": ""
-            })
-            
             for ambiente, itens_lista in ambientes_dict.items():
-                # Linha do Ambiente
-                dados_excel.append({
-                    "Hierarquia": f"  📍 {ambiente}", 
-                    "Status": "", 
-                    "Patrimônio": "", 
-                    "Observação": ""
-                })
-                
                 for i in itens_lista:
-                    # Linha do Item
                     dados_excel.append({
-                        "Hierarquia": f"      - {i['mat_nome']}",
+                        "Unidade": unidade.upper(),
+                        "Ambiente": ambiente,
+                        "Item": i['mat_nome'],
                         "Status": i['status'],
                         "Patrimônio": i['patrimonio'],
-                        "Observação": i.get('observacao', '')
+                        "Observação": i.get('observacao', ''),
+                        "Data Extração": datetime.now().strftime('%d/%m/%Y')
                     })
         
         df_export = pd.DataFrame(dados_excel)
     
-        # 2. Criar o arquivo Excel em memória
+        # 2. Criar o arquivo Excel com "Superpoderes"
         buffer = io.BytesIO()
         with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-            df_export.to_excel(writer, index=False, sheet_name='Inventario')
+            df_export.to_excel(writer, index=False, sheet_name='Inventario_Geral')
             
             workbook  = writer.book
-            worksheet = writer.sheets['Inventario']
+            worksheet = writer.sheets['Inventario_Geral']
     
-            # Formatos visuais
-            fmt_unidade = workbook.add_format({'bold': True, 'bg_color': '#D7E4BC', 'border': 1})
-            fmt_ambiente = workbook.add_format({'bold': True, 'bg_color': '#EAF1DD', 'italic': True})
+            # --- DEFINIÇÃO DE ESTILOS ---
+            header_fmt = workbook.add_format({'bold': True, 'bg_color': '#1F4E78', 'font_color': 'white', 'border': 1})
+            urgente_fmt = workbook.add_format({'bg_color': '#FFC7CE', 'font_color': '#9C0006'}) # Vermelho claro
+            atencao_fmt = workbook.add_format({'bg_color': '#FFEB9C', 'font_color': '#9C6500'}) # Amarelo
+            ok_fmt = workbook.add_format({'bg_color': '#C6EFCE', 'font_color': '#006100'})      # Verde claro
+
+            # --- APLICAR RECURSOS ---
+            # 1. Ajustar cabeçalho
+            for col_num, value in enumerate(df_export.columns.values):
+                worksheet.write(0, col_num, value, header_fmt)
+
+            # 2. Ativar Autofiltro em todas as colunas
+            worksheet.autofilter(0, 0, len(df_export), len(df_export.columns) - 1)
             
-            # Ajustar largura das colunas
-            worksheet.set_column('A:A', 50)
-            worksheet.set_column('B:D', 20)
-    
-            # Aplicar formatação nas linhas (começa em 1 porque 0 é o cabeçalho)
-            for row_num, data in enumerate(dados_excel):
-                if "🏥 UNIDADE:" in data["Hierarquia"]:
-                    worksheet.set_row(row_num + 1, None, fmt_unidade)
-                elif "📍" in data["Hierarquia"]:
-                    worksheet.set_row(row_num + 1, None, fmt_ambiente)
-    
-        # 3. Botão de Download (O segredo é o buffer.getvalue())
+            # 3. Formatação Condicional na coluna 'Status' (Coluna D no Excel = índice 3)
+            # Se status for 'satisfatorio' -> Verde
+            worksheet.conditional_format(1, 3, len(df_export), 3, {
+                'type':     'cell',
+                'criteria': 'equal to',
+                'value':    '"satisfatorio"',
+                'format':   ok_fmt
+            })
+            # Se status for 'trocar_urgente' -> Vermelho
+            worksheet.conditional_format(1, 3, len(df_export), 3, {
+                'type':     'cell',
+                'criteria': 'equal to',
+                'value':    '"trocar_urgente"',
+                'format':   urgente_fmt
+            })
+
+            # 4. Congelar a primeira linha (cabeçalho sempre visível ao rolar)
+            worksheet.freeze_panes(1, 0)
+
+            # 5. Ajustar largura automática das colunas
+            worksheet.set_column('A:G', 22)
+
+        # 3. Botão de Download
         st.download_button(
-            label="📥 Baixar Inventário Atualizado (Excel)",
+            label="📥 Gerar Planilha Inteligente",
             data=buffer.getvalue(),
-            file_name=f"Inventario_USF_{datetime.now().strftime('%d_%m_%Y')}.xlsx",
+            file_name=f"Relatorio_Inventario_{datetime.now().strftime('%d_%m_%Y')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+        
+        # Dica visual no Streamlit
+        st.info("💡 A planilha gerada já contém filtros automáticos e cores por status.")
     else:
         st.warning("Não há dados filtrados para exportar.")
