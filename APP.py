@@ -899,7 +899,6 @@ with aba5:
     else:
         st.warning("Não há dados filtrados para exportar.")
 
-
 # --- NO FINAL DO ARQUIVO (FORA DE QUALQUER ABA) ---
 
 def gerenciador_de_dialogos():
@@ -918,12 +917,15 @@ def gerenciador_de_dialogos():
                 supabase.table("itens_inventario").delete().eq("ambiente_id", amb["id"]).execute()
                 supabase.table("ambientes").delete().eq("id", amb["id"]).execute()
                 st.cache_data.clear()
-                st.session_state.pop("confirm_delete_ambiente") # Remove da memória
+                st.session_state.pop("confirm_delete_ambiente") 
                 st.rerun()
             if c2.button("Cancelar", use_container_width=True):
                 st.session_state.pop("confirm_delete_ambiente")
                 st.rerun()
+        
         modal_confirm_del_amb()
+        # Se o script chegar aqui e o diálogo fechar (pelo X ou fora), 
+        # o Streamlit continua o loop.
 
     elif st.session_state.get("edit_ambiente"):
         @st.dialog("✏️ Editar Ambiente")
@@ -941,6 +943,7 @@ def gerenciador_de_dialogos():
             if c2.button("Sair", use_container_width=True):
                 st.session_state.pop("edit_ambiente")
                 st.rerun()
+        
         modal_editar_amb()
 
     # --- 2. MATERIAIS (ABA 3) ---
@@ -960,6 +963,7 @@ def gerenciador_de_dialogos():
             if c2.button("Cancelar", use_container_width=True):
                 st.session_state.pop("confirm_delete_material")
                 st.rerun()
+        
         modal_confirm_del_mat()
 
     elif st.session_state.get("edit_material"):
@@ -978,7 +982,8 @@ def gerenciador_de_dialogos():
             if c2.button("Fechar", use_container_width=True):
                 st.session_state.pop("edit_material")
                 st.rerun()
+        
         modal_editar_mat()
 
-# Executa o gerenciador
+# --- EXECUÇÃO ---
 gerenciador_de_dialogos()
