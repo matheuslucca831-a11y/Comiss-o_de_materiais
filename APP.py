@@ -902,88 +902,144 @@ with aba5:
 # --- NO FINAL DO ARQUIVO (FORA DE QUALQUER ABA) ---
 
 def gerenciador_de_dialogos():
-    # O uso de elif garante que o Streamlit NUNCA tente abrir dois popups ao mesmo tempo
-    
-    # --- 1. AMBIENTES (ABA 2) ---
+    # O uso de elif garante que NUNCA abra dois diálogos ao mesmo tempo
+
+    # -------------------------------
+    # 1. AMBIENTES
+    # -------------------------------
     if st.session_state.get("confirm_delete_ambiente"):
+
         @st.dialog("⚠️ Excluir Ambiente")
         def modal_confirm_del_amb():
             amb = st.session_state["confirm_delete_ambiente"]
+
             st.error(f"Deseja realmente excluir o ambiente '{amb['nome']}'?")
             st.caption("Isso apagará todos os itens vinculados a ele.")
-            
+
             c1, c2 = st.columns(2)
+
             if c1.button("Confirmar", type="primary", use_container_width=True):
-                supabase.table("itens_inventario").delete().eq("ambiente_id", amb["id"]).execute()
-                supabase.table("ambientes").delete().eq("id", amb["id"]).execute()
+                supabase.table("itens_inventario").delete().eq(
+                    "ambiente_id", amb["id"]
+                ).execute()
+
+                supabase.table("ambientes").delete().eq(
+                    "id", amb["id"]
+                ).execute()
+
                 st.cache_data.clear()
-                st.session_state.pop("confirm_delete_ambiente") 
+                st.session_state.pop("confirm_delete_ambiente", None)
                 st.rerun()
+
             if c2.button("Cancelar", use_container_width=True):
-                st.session_state.pop("confirm_delete_ambiente")
+                st.session_state.pop("confirm_delete_ambiente", None)
                 st.rerun()
-        
+
         modal_confirm_del_amb()
-        # Se o script chegar aqui e o diálogo fechar (pelo X ou fora), 
-        # o Streamlit continua o loop.
 
     elif st.session_state.get("edit_ambiente"):
+
         @st.dialog("✏️ Editar Ambiente")
         def modal_editar_amb():
             amb = st.session_state["edit_ambiente"]
+
             novo = st.text_input("Novo nome:", value=amb["nome"])
-            
+
             c1, c2 = st.columns(2)
+
             if c1.button("Salvar", type="primary", use_container_width=True):
                 if novo:
-                    supabase.table("ambientes").update({"nome": novo.strip()}).eq("id", amb["id"]).execute()
+                    supabase.table("ambientes").update(
+                        {"nome": novo.strip()}
+                    ).eq("id", amb["id"]).execute()
+
                     st.cache_data.clear()
-                    st.session_state.pop("edit_ambiente")
+                    st.session_state.pop("edit_ambiente", None)
                     st.rerun()
+
             if c2.button("Sair", use_container_width=True):
-                st.session_state.pop("edit_ambiente")
+                st.session_state.pop("edit_ambiente", None)
                 st.rerun()
-        
+
         modal_editar_amb()
 
-    # --- 2. MATERIAIS (ABA 3) ---
+    # -------------------------------
+    # 2. MATERIAIS
+    # -------------------------------
     elif st.session_state.get("confirm_delete_material"):
+
         @st.dialog("⚠️ Excluir Material")
         def modal_confirm_del_mat():
             mat = st.session_state["confirm_delete_material"]
+
             st.warning(f"Isso apagará todos os registros de {mat['nome']} no catálogo.")
-            
+
             c1, c2 = st.columns(2)
+
             if c1.button("Apagar Tudo", type="primary", use_container_width=True):
-                supabase.table("itens_inventario").delete().eq("material_id", mat["id"]).execute()
-                supabase.table("materiais").delete().eq("id", mat["id"]).execute()
+                supabase.table("itens_inventario").delete().eq(
+                    "material_id", mat["id"]
+                ).execute()
+
+                supabase.table("materiais").delete().eq(
+                    "id", mat["id"]
+                ).execute()
+
                 st.cache_data.clear()
-                st.session_state.pop("confirm_delete_material")
+                st.session_state.pop("confirm_delete_material", None)
                 st.rerun()
+
             if c2.button("Cancelar", use_container_width=True):
-                st.session_state.pop("confirm_delete_material")
+                st.session_state.pop("confirm_delete_material", None)
                 st.rerun()
-        
+
         modal_confirm_del_mat()
 
     elif st.session_state.get("edit_material"):
+
         @st.dialog("✏️ Editar Material")
         def modal_editar_mat():
             mat = st.session_state["edit_material"]
+
             novo = st.text_input("Novo nome:", value=mat["nome"])
-            
+
             c1, c2 = st.columns(2)
+
             if c1.button("Atualizar", type="primary", use_container_width=True):
                 if novo:
-                    supabase.table("materiais").update({"nome": novo.strip()}).eq("id", mat["id"]).execute()
+                    supabase.table("materiais").update(
+                        {"nome": novo.strip()}
+                    ).eq("id", mat["id"]).execute()
+
                     st.cache_data.clear()
-                    st.session_state.pop("edit_material")
+                    st.session_state.pop("edit_material", None)
                     st.rerun()
+
             if c2.button("Fechar", use_container_width=True):
-                st.session_state.pop("edit_material")
+                st.session_state.pop("edit_material", None)
                 st.rerun()
-        
+
         modal_editar_mat()
 
-# --- EXECUÇÃO ---
+
+# -------------------------------
+# LIMPEZA AUTOMÁTICA (quando fecha no X)
+# -------------------------------
+def limpar_dialogos_fechados():
+    keys = [
+        "confirm_delete_ambiente",
+        "edit_ambiente",
+        "confirm_delete_material",
+        "edit_material"
+    ]
+
+    for key in keys:
+        if key in st.session_state and st.session_state[key] is None:
+            st.session_state.pop(key, None)
+
+
+# -------------------------------
+# EXECUÇÃO
+# -------------------------------
 gerenciador_de_dialogos()
+limpar_dialogos_fechados()
