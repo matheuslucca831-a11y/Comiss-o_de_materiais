@@ -902,16 +902,16 @@ with aba5:
 # --- NO FINAL DO ARQUIVO (FORA DE QUALQUER ABA) ---
 
 def gerenciador_de_dialogos():
-    # O uso de elif garante que NUNCA abra dois diálogos ao mesmo tempo
 
-    # -------------------------------
-    # 1. AMBIENTES
-    # -------------------------------
+    # -------------------------
+    # EXCLUIR AMBIENTE
+    # -------------------------
     if st.session_state.get("confirm_delete_ambiente"):
+
+        amb = st.session_state.pop("confirm_delete_ambiente")
 
         @st.dialog("⚠️ Excluir Ambiente")
         def modal_confirm_del_amb():
-            amb = st.session_state["confirm_delete_ambiente"]
 
             st.error(f"Deseja realmente excluir o ambiente '{amb['nome']}'?")
             st.caption("Isso apagará todos os itens vinculados a ele.")
@@ -928,20 +928,22 @@ def gerenciador_de_dialogos():
                 ).execute()
 
                 st.cache_data.clear()
-                st.session_state.pop("confirm_delete_ambiente", None)
                 st.rerun()
 
             if c2.button("Cancelar", use_container_width=True):
-                st.session_state.pop("confirm_delete_ambiente", None)
                 st.rerun()
 
         modal_confirm_del_amb()
 
+    # -------------------------
+    # EDITAR AMBIENTE
+    # -------------------------
     elif st.session_state.get("edit_ambiente"):
+
+        amb = st.session_state.pop("edit_ambiente")
 
         @st.dialog("✏️ Editar Ambiente")
         def modal_editar_amb():
-            amb = st.session_state["edit_ambiente"]
 
             novo = st.text_input("Novo nome:", value=amb["nome"])
 
@@ -954,23 +956,22 @@ def gerenciador_de_dialogos():
                     ).eq("id", amb["id"]).execute()
 
                     st.cache_data.clear()
-                    st.session_state.pop("edit_ambiente", None)
                     st.rerun()
 
             if c2.button("Sair", use_container_width=True):
-                st.session_state.pop("edit_ambiente", None)
                 st.rerun()
 
         modal_editar_amb()
 
-    # -------------------------------
-    # 2. MATERIAIS
-    # -------------------------------
+    # -------------------------
+    # EXCLUIR MATERIAL
+    # -------------------------
     elif st.session_state.get("confirm_delete_material"):
+
+        mat = st.session_state.pop("confirm_delete_material")
 
         @st.dialog("⚠️ Excluir Material")
         def modal_confirm_del_mat():
-            mat = st.session_state["confirm_delete_material"]
 
             st.warning(f"Isso apagará todos os registros de {mat['nome']} no catálogo.")
 
@@ -986,20 +987,22 @@ def gerenciador_de_dialogos():
                 ).execute()
 
                 st.cache_data.clear()
-                st.session_state.pop("confirm_delete_material", None)
                 st.rerun()
 
             if c2.button("Cancelar", use_container_width=True):
-                st.session_state.pop("confirm_delete_material", None)
                 st.rerun()
 
         modal_confirm_del_mat()
 
+    # -------------------------
+    # EDITAR MATERIAL
+    # -------------------------
     elif st.session_state.get("edit_material"):
+
+        mat = st.session_state.pop("edit_material")
 
         @st.dialog("✏️ Editar Material")
         def modal_editar_mat():
-            mat = st.session_state["edit_material"]
 
             novo = st.text_input("Novo nome:", value=mat["nome"])
 
@@ -1012,34 +1015,13 @@ def gerenciador_de_dialogos():
                     ).eq("id", mat["id"]).execute()
 
                     st.cache_data.clear()
-                    st.session_state.pop("edit_material", None)
                     st.rerun()
 
             if c2.button("Fechar", use_container_width=True):
-                st.session_state.pop("edit_material", None)
                 st.rerun()
 
         modal_editar_mat()
 
 
-# -------------------------------
-# LIMPEZA AUTOMÁTICA (quando fecha no X)
-# -------------------------------
-def limpar_dialogos_fechados():
-    keys = [
-        "confirm_delete_ambiente",
-        "edit_ambiente",
-        "confirm_delete_material",
-        "edit_material"
-    ]
-
-    for key in keys:
-        if key in st.session_state and st.session_state[key] is None:
-            st.session_state.pop(key, None)
-
-
-# -------------------------------
 # EXECUÇÃO
-# -------------------------------
 gerenciador_de_dialogos()
-limpar_dialogos_fechados()
