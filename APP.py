@@ -7,6 +7,12 @@ from datetime import datetime, timedelta
 import bcrypt
 import extra_streamlit_components as stx
 
+st.set_page_config(
+    page_title="Comissão de Materiais", # Nome que aparece na aba do navegador
+    page_icon="🏥",                          # Emoji ou link de uma imagem para o ícone
+    layout="wide"                            # Opcional: faz o app usar a tela toda
+)
+
 # 1. Configurações de conexão
 url = "https://oudfbraxmwuskdnnlisf.supabase.co"
 key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im91ZGZicmF4bXd1c2tkbm5saXNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4Nzc5NzQsImV4cCI6MjA4OTQ1Mzk3NH0.QnL67maBxqsfgm4xHmLBYcqPbQ99swjHw3OzndSM9qA"
