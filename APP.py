@@ -626,7 +626,7 @@ with aba4:
     # =========================================================
     # ÁREA DE CADASTRO (Otimizada para Velocidade Máxima)
     # =========================================================
-st.subheader("➕ Cadastrar Novo Item")
+    st.subheader("➕ Cadastrar Novo Item")
     
     # 1. Selectboxes de hierarquia (fora do form)
     c1, c2 = st.columns(2)
