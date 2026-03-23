@@ -205,163 +205,58 @@ aba1, aba2, aba3, aba4, aba5 = st.tabs([
 
 
 with aba1:
-    st.header("🏥 Unidades")
+    st.subheader("🏥 Gestão de Unidades de Saúde")
 
-    # 1. CARREGAMENTO DOS DADOS VIA CACHE
-    unidades_data = get_unidades()
-
-    # -------------------------
-    # CRIAR UNIDADE
-    # -------------------------
-    if "reset_count" not in st.session_state:
-        st.session_state.reset_count = 0
-    
-    # 2. Crie uma chave única baseada nesse contador
-    chave_dinamica = f"input_unidade_{st.session_state.reset_count}"
-    
-    # 3. Use essa chave no text_input
-    nome_unidade = st.text_input("Nome da unidade", key=chave_dinamica)
-    
-    if st.button("Criar Unidade", key="btn_create_unidade"):
-        if not nome_unidade:
-            st.warning("Digite o nome da unidade")
-        else:
-            existe = [u for u in unidades_data if u["nome"].lower() == nome_unidade.lower()]
-            
-            if existe:
-                st.warning(f"A unidade '{nome_unidade}' já existe.")
+    # --- 1. CADASTRO DE UNIDADE (EXPANDER) ---
+    with st.expander("➕ Cadastrar Nova Unidade", expanded=False):
+        if "reset_count" not in st.session_state:
+            st.session_state.reset_count = 0
+        
+        c_in, c_btn = st.columns([3, 1])
+        chave_unidade = f"input_unidade_{st.session_state.reset_count}"
+        nome_unidade = c_in.text_input("Nome da unidade", placeholder="Ex: USF Boiçucanga", key=chave_unidade, label_visibility="collapsed")
+        
+        if c_btn.button("Criar", use_container_width=True, type="primary"):
+            unidades_data = get_unidades() # Pega dados atuais para conferir se existe
+            if not nome_unidade:
+                st.toast("⚠️ Digite o nome da unidade", icon="🏥")
+            elif any(u["nome"].lower() == nome_unidade.lower() for u in unidades_data):
+                st.error("Esta unidade já existe.")
             else:
                 try:
-                    # Faz o insert normalmente
-                    supabase.table("unidades").insert({"nome": nome_unidade}).execute()
-                    
-                    st.success(f"✅ Unidade '{nome_unidade}' criada!")
-                    
-                    # --- AQUI ESTÁ O TRUQUE ---
-                    # Aumentamos o contador. No próximo rerun, a chave do input muda 
-                    # e o Streamlit renderiza um campo NOVO e VAZIO.
+                    supabase.table("unidades").insert({"nome": nome_unidade.strip()}).execute()
                     st.session_state.reset_count += 1
-                    
                     st.cache_data.clear()
+                    st.success(f"Unidade criada!")
                     st.rerun()
-                    
                 except Exception as e:
-                    st.error("Erro ao salvar:")
-                    st.exception(e)
+                    st.error(f"Erro: {e}")
 
-    # -------------------------
-    # BUSCA (Agora filtrando os dados cacheados)
-    # -------------------------
-    busca = st.text_input("🔎 Buscar unidade", key="input_busca_unidade")
+    st.divider()
 
-    unidades_exibicao = unidades_data
+    # --- 2. BUSCA E LISTAGEM ---
+    busca = st.text_input("🔎 Pesquisar Unidade...", placeholder="Digite o nome para filtrar...")
+    
+    unidades_raw = get_unidades()
+    unidades_exibicao = [u for u in unidades_raw if busca.lower() in u["nome"].lower()] if busca else unidades_raw
 
-    if busca:
-        unidades_exibicao = [u for u in unidades_data if busca.lower() in u["nome"].lower()]
-
-    # -------------------------
-    # LISTAGEM COM AÇÕES
-    # -------------------------
-    for u in unidades_exibicao:
-        col1, col2, col3 = st.columns([6,1,1])
-
-        # Nome
-        with col1:
-            st.write(u["nome"])
-
-        # Editar
-        with col2:
-            if st.button("✏️", key=f"edit_{u['id']}"):
-                st.session_state["edit_unidade"] = u
-
-        # Deletar
-        with col3:
-            if st.button("🗑️", key=f"del_{u['id']}"):
-                st.session_state["confirm_delete_unidade"] = u
-
-    # -------------------------
-    # CONFIRMAÇÃO DE EXCLUSÃO
-    # -------------------------
-    if "confirm_delete_unidade" in st.session_state:
-
-        unidade = st.session_state["confirm_delete_unidade"]
-
-        st.warning(f"A unidade '{unidade['nome']}' pode ter ambientes vinculados.")
-        st.write("Deseja excluir a unidade e TODOS os dados relacionados?")
-
-        col1, col2 = st.columns(2)
-
-        # CONFIRMAR
-        with col1:
-            if st.button("Sim, excluir tudo", key="btn_confirm_del_final"):
-
-                try:
-                    # Buscar ambientes da unidade (aqui usamos query direta para garantir cascata correta)
-                    ambientes = supabase.table("ambientes") \
-                        .select("*") \
-                        .eq("unidade_id", unidade["id"]) \
-                        .execute().data
-
-                    for amb in ambientes:
-                        # Deletar itens do ambiente
-                        supabase.table("itens_inventario") \
-                            .delete() \
-                            .eq("ambiente_id", amb["id"]) \
-                            .execute()
-
-                        # Deletar ambiente
-                        supabase.table("ambientes") \
-                            .delete() \
-                            .eq("id", amb["id"]) \
-                            .execute()
-
-                    # Deletar unidade
-                    supabase.table("unidades") \
-                        .delete() \
-                        .eq("id", unidade["id"]) \
-                        .execute()
-
-                    st.success("Unidade e todos os dados foram excluídos!")
-                    # Limpa o cache global após a exclusão
-                    st.cache_data.clear()
-                    del st.session_state["confirm_delete_unidade"]
-                    st.rerun()
-
-                except Exception as e:
-                    st.error("Erro ao excluir:")
-                    st.write(e)
-
-        # CANCELAR
-        with col2:
-            if st.button("Cancelar", key="btn_cancel_del"):
-                del st.session_state["confirm_delete_unidade"]
-                st.rerun()
-
-    # -------------------------
-    # EDITAR UNIDADE
-    # -------------------------
-    if "edit_unidade" in st.session_state:
-        st.subheader("✏️ Editar Unidade")
-
-        unidade = st.session_state["edit_unidade"]
-
-        novo_nome = st.text_input(
-            "Novo nome",
-            value=unidade["nome"],
-            key="input_edit_nome"
-        )
-
-        if st.button("Salvar alteração", key="btn_save_edit"):
-            supabase.table("unidades") \
-                .update({"nome": novo_nome}) \
-                .eq("id", unidade["id"]) \
-                .execute()
-
-            st.success("Atualizado!")
-            # Limpa o cache para atualizar o nome na lista
-            st.cache_data.clear()
-            del st.session_state["edit_unidade"]
-            st.rerun()
+    if not unidades_exibicao:
+        st.info("Nenhuma unidade encontrada.")
+    else:
+        # Layout de Grid/Cards
+        for u in unidades_exibicao:
+            with st.container(border=True):
+                col1, col2, col3 = st.columns([6, 1, 1])
+                with col1:
+                    st.markdown(f"**{u['nome'].upper()}**")
+                with col2:
+                    if st.button("✏️", key=f"edit_uni_{u['id']}", help="Editar nome"):
+                        st.session_state["edit_unidade"] = u
+                        st.rerun()
+                with col3:
+                    if st.button("🗑️", key=f"del_uni_{u['id']}", help="Excluir unidade"):
+                        st.session_state["confirm_delete_unidade"] = u
+                        st.rerun()
             
 with aba2:
     st.subheader("🏢 Gestão de Ambientes e Salas")
@@ -903,6 +798,54 @@ with aba5:
 
 def gerenciador_de_dialogos():
 
+
+
+
+
+    # --- UNIDADES (ABA 1) ---
+    if st.session_state.get("confirm_delete_unidade"):
+        unidade = st.session_state.pop("confirm_delete_unidade")
+        
+        @st.dialog("⚠️ Exclusão Crítica")
+        def modal_del_unidade():
+            st.error(f"Excluir a unidade: {unidade['nome']}?")
+            st.warning("ISSO APAGARÁ TODOS OS AMBIENTES E ITENS DESTA UNIDADE!")
+            
+            if st.button("Sim, apagar TUDO", type="primary", use_container_width=True):
+                try:
+                    # Lógica de cascata manual
+                    ambientes = supabase.table("ambientes").select("id").eq("unidade_id", unidade["id"]).execute().data
+                    for amb in ambientes:
+                        supabase.table("itens_inventario").delete().eq("ambiente_id", amb["id"]).execute()
+                        supabase.table("ambientes").delete().eq("id", amb["id"]).execute()
+                    
+                    supabase.table("unidades").delete().eq("id", unidade["id"]).execute()
+                    st.cache_data.clear()
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Erro ao excluir: {e}")
+            
+            if st.button("Cancelar", use_container_width=True):
+                st.rerun()
+        modal_del_unidade()
+
+    elif st.session_state.get("edit_unidade"):
+        unidade = st.session_state.pop("edit_unidade")
+        
+        @st.dialog("✏️ Editar Unidade")
+        def modal_edit_unidade():
+            novo_nome = st.text_input("Novo nome:", value=unidade["nome"])
+            if st.button("Salvar Alteração", type="primary", use_container_width=True):
+                if novo_nome:
+                    supabase.table("unidades").update({"nome": novo_nome.strip()}).eq("id", unidade["id"]).execute()
+                    st.cache_data.clear()
+                    st.rerun()
+            if st.button("Sair", use_container_width=True):
+                st.rerun()
+        modal_edit_unidade()
+
+
+    
     # -------------------------
     # EXCLUIR AMBIENTE
     # -------------------------
