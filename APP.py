@@ -835,14 +835,17 @@ with aba4:
                             if st.session_state.get("view_audit_id") == i["id"]:
                                 with st.container(border=True):
                                     st.info(f"📜 Histórico: {i['mat_nome']}")
-                                    # ... seu código de busca de logs aqui ...
                                     res = supabase.table("historico_alteracoes").select("*").eq("item_id", i["id"]).execute()
                                     logs = res.data
                                     if logs:
                                         logs = sorted(logs, key=lambda x: x.get('created_at', ''), reverse=True)
                                         for l in logs:
-                                            # (Sua lógica de data mantida aqui para brevidade...)
-                                            st.write(f"⏰ **Log:** {l['detalhes']}")
+                                            # Pegamos o nome do usuário do log
+                                            resp = l.get('usuario', 'Sistema')
+                                            # Exibição mais detalhada
+                                            st.write(f"👤 **{resp}**")
+                                            st.caption(f"📝 {l['detalhes']} | ⏰ {l['created_at'][:16]}") # Mostra data/hora cortada
+                                            st.markdown("---")
                                     
                                     if st.button("Fechar Histórico", key=f"cls_aud_{i['id']}", use_container_width=True):
                                         del st.session_state["view_audit_id"]
