@@ -667,52 +667,53 @@ with aba4:
 
                 # Botão de submissão
                 btn_salvar = st.form_submit_button("✅ Salvar Item no Inventário", use_container_width=True)
-
-                if btn_salvar:
-                        # 1. Feedback visual mais leve (spinner em vez de status pesado)
-                        with st.spinner("Salvando..."):
-                            try:
-                                # 2. Identifica o Material (Evita ida desnecessária ao banco se já existe)
-                                if material_sel and material_sel["id"] != "outro":
-                                    material_id = material_sel["id"]
-                                else:
-                                    # Só cria novo se for "outro"
-                                    res_mat = supabase.table("materiais").upsert({"nome": novo_material.strip()}, on_conflict="nome").execute()
-                                    material_id = res_mat.data[0]["id"]
     
-                                # 3. Salva o Item Principal
-                                res_item = supabase.table("itens_inventario").insert({
-                                    "ambiente_id": ambiente_sel["id"],
-                                    "material_id": material_id,
-                                    "patrimonio": patrimonio,
-                                    "status": status,
-                                    "observacao": obs_item
+                if btn_salvar:
+                    # 1. Feedback visual leve
+                    with st.spinner("Salvando..."):
+                        try:
+                            # 2. Identifica o Material
+                            if material_sel and material_sel["id"] != "outro":
+                                material_id = material_sel["id"]
+                            elif material_sel and material_sel["id"] == "outro" and novo_material:
+                                # Só cria novo se for "outro" e tiver nome digitado
+                                res_mat = supabase.table("materiais").upsert({"nome": novo_material.strip()}, on_conflict="nome").execute()
+                                material_id = res_mat.data[0]["id"]
+                            else:
+                                st.error("⚠️ Selecione um material ou digite o nome do novo.")
+                                st.stop()
+    
+                            # 3. Salva o Item Principal
+                            res_item = supabase.table("itens_inventario").insert({
+                                "ambiente_id": ambiente_sel["id"],
+                                "material_id": material_id,
+                                "patrimonio": patrimonio,
+                                "status": status,
+                                "observacao": obs_item
+                            }).execute()
+                        
+                            if res_item.data:
+                                # 4. Salva o Histórico
+                                id_criado = res_item.data[0]["id"]
+                                supabase.table("historico_alteracoes").insert({
+                                    "item_id": id_criado,
+                                    "usuario": st.session_state.get("nome_admin", "Sistema"),
+                                    "detalhes": "Cadastro inicial"
                                 }).execute()
-                            
-                                if res_item.data:
-                                    # 4. Salva o Histórico
-                                    id_criado = res_item.data[0]["id"]
-                                    supabase.table("historico_alteracoes").insert({
-                                        "item_id": id_criado,
-                                        "usuario": st.session_state.get("nome_admin", "Sistema"),
-                                        "detalhes": "Cadastro inicial"
-                                    }).execute()
-                            
-                                    # 5. Feedback rápido e RECOMEÇO IMEDIATO
-                                    st.toast("✅ Item salvo!", icon='🚀')
-                                    
-                                    # Removi o st.cache_data.clear() e o time.sleep() 
-                                    # Isso vai fazer o 'bonequinho' sumir muito mais rápido.
-                                    st.rerun()
-                                    
-                            except Exception as e:
-                                st.error(f"Erro crítico: {e}")
-                        else:
-                            status_load.update(label="⚠️ Erro: Selecione um material válido.", state="error")
-    else:
-        st.info("💡 Selecione uma unidade acima para liberar o formulário de cadastro.")
-
-    st.markdown("---")
+                        
+                                # 5. Finalização instantânea e silenciosa
+                                st.toast("✅ Item salvo com sucesso!", icon='🚀')
+                                
+                                # Não limpamos o cache aqui para manter a velocidade do botão
+                                st.rerun()
+                                
+                        except Exception as e:
+                            st.error(f"Erro crítico: {e}")
+    
+        else:
+            st.info("💡 Selecione uma unidade acima para liberar o formulário de cadastro.")
+    
+        st.markdown("---")
 
     # =========================================================
     # ÁREA DE CONSULTA (Pré-processamento Eficiente)
