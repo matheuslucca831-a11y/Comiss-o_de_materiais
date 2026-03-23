@@ -791,41 +791,32 @@ with aba4:
                                     st.caption(f"📝 {i['observacao']}")
                                     
                             with col_acoes:
-                                # O popover fecha sozinho sempre que houver um st.rerun()
+                                # O popover fecha SEMPRE que houver um st.rerun()
                                 with st.popover("⚙️", help="Ações"):
                                     st.write(f"**Item:** {i['mat_nome']}")
                                     
-                                    # EDITAR: Define o ID e recarrega a página (o menu some)
+                                    # EDITAR: Força o rerun para o popover sumir e a tela de edição aparecer
                                     if st.button("✏️ Editar", key=f"btn_ed_{i['id']}", use_container_width=True):
                                         st.session_state["edit_item_id"] = i["id"]
-                                        # Limpa outros estados para não encavalar telas
-                                        st.session_state.pop("view_audit_id", None)
-                                        st.rerun()
+                                        st.session_state.pop("view_audit_id", None) # Garante que não tenha duas telas abertas
+                                        st.rerun() 
                                         
-                                    # HISTÓRICO: Define o ID e recarrega a página (o menu some)
+                                    # HISTÓRICO: Força o rerun para o popover sumir e o histórico aparecer
                                     if st.button("📜 Histórico", key=f"btn_aud_{i['id']}", use_container_width=True):
                                         st.session_state["view_audit_id"] = i["id"]
-                                        st.session_state.pop("edit_item_id", None)
+                                        st.session_state.pop("edit_item_id", None) # Garante que não tenha duas telas abertas
                                         st.rerun()
                                         
                                     st.markdown("---")
                                     
-                                    # EXCLUIR: Deleta e recarrega (o menu some e o item desaparece)
+                                    # EXCLUIR: Deleta e dá rerun (o item e o popover somem de uma vez)
                                     if st.button("🗑️ Excluir", key=f"btn_del_{i['id']}", use_container_width=True, type="primary"):
-                                        try:
-                                            # Operações de banco
-                                            supabase.table("historico_alteracoes").delete().eq("item_id", i["id"]).execute()
-                                            supabase.table("itens_inventario").delete().eq("id", i["id"]).execute()
-                                            
-                                            # Limpeza de cache e reset de estados de tela
-                                            st.cache_data.clear()
-                                            st.session_state.pop("edit_item_id", None)
-                                            st.session_state.pop("view_audit_id", None)
-                                            
-                                            st.toast(f"✅ Item removido com sucesso!", icon="🗑️")
-                                            st.rerun()
-                                        except Exception as e:
-                                            st.error(f"Erro ao excluir: {e}")
+                                        supabase.table("historico_alteracoes").delete().eq("item_id", i["id"]).execute()
+                                        supabase.table("itens_inventario").delete().eq("id", i["id"]).execute()
+                                        
+                                        st.cache_data.clear()
+                                        st.toast(f"✅ Item excluído!", icon="🗑️")
+                                        st.rerun()
 
                             # --- RENDERIZAÇÃO DOS MODAIS DE EDIÇÃO/HISTÓRICO ---
                             if st.session_state.get("view_audit_id") == i["id"]:
