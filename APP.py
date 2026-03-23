@@ -492,126 +492,114 @@ with aba2:
             st.rerun()
 
 with aba3:
-
-    st.header("📦 Editar Materiais")
-
-    # 1. Inicializa o contador de reset para Materiais se não existir
-    if "reset_mat_count" not in st.session_state:
-        st.session_state.reset_mat_count = 0
-
-    # -------------------------
-    # CRIAR MATERIAL
-    # -------------------------
-    # 2. Gera a chave dinâmica baseada no contador
-    chave_material = f"input_novo_material_{st.session_state.reset_mat_count}"
+    st.subheader("🛠️ Gestão do Catálogo de Materiais")
     
-    novo_material = st.text_input("Novo material", key=chave_material)
-
-    if st.button("Adicionar", key="btn_add_material"):
-        if not novo_material:
-            st.warning("Digite o nome do material")
-        else:
-            nome_limpo = novo_material.strip()
+    # --- 1. ÁREA DE NOVO MATERIAL (DESIGN COMPACTO) ---
+    with st.expander("➕ Cadastrar Novo Material no Sistema", expanded=False):
+        if "reset_mat_count" not in st.session_state:
+            st.session_state.reset_mat_count = 0
             
-            # Verifica se já existe no banco
-            existe = supabase.table("materiais").select("*").eq("nome", nome_limpo).execute().data
-
-            if existe:
-                st.warning("Material já existe")
+        col_in, col_btn = st.columns([3, 1])
+        chave_material = f"input_novo_material_{st.session_state.reset_mat_count}"
+        novo_material = col_in.text_input("Nome do Material", placeholder="Ex: Cadeira de Rodas", key=chave_material, label_visibility="collapsed")
+        
+        if col_btn.button("🚀 Adicionar", use_container_width=True):
+            if not novo_material:
+                st.toast("⚠️ Digite o nome do material", icon="🔤")
             else:
-                try:
-                    supabase.table("materiais").insert({"nome": nome_limpo}).execute()
-                    st.success(f"✅ Material '{nome_limpo}' criado!")
-                    
-                    # 3. O TRUQUE: Aumenta o contador para resetar o input no próximo rerun
-                    st.session_state.reset_mat_count += 1
-                    
-                    # LIMPA O CACHE para a Aba 4 enxergar o novo material
-                    st.cache_data.clear()
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Erro ao salvar material: {e}")
+                nome_limpo = novo_material.strip()
+                existe = supabase.table("materiais").select("*").eq("nome", nome_limpo).execute().data
+                if existe:
+                    st.error("Este material já consta no sistema.")
+                else:
+                    try:
+                        supabase.table("materiais").insert({"nome": nome_limpo}).execute()
+                        st.session_state.reset_mat_count += 1
+                        st.cache_data.clear()
+                        st.success(f"Material '{nome_limpo}' adicionado!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro: {e}")
 
-    st.markdown("---")
+    st.divider()
+
+    # --- 2. BUSCA E CONTROLE DE LISTAGEM ---
+    c_busca, c_stats = st.columns([2, 1])
+    busca_material = c_busca.text_input("🔎 Pesquisar no Catálogo...", placeholder="Digite para filtrar...")
     
-    # -------------------------
-    # BUSCA E LISTAGEM
-    # -------------------------
-    busca_material = st.text_input("🔎 Buscar material", key="busca_material")
-
-    # Buscamos a lista atualizada
-    materiais = supabase.table("materiais").select("*").order("nome").execute().data
-
+    # Busca dados
+    materiais_raw = supabase.table("materiais").select("*").order("nome").execute().data
     if busca_material:
-        materiais = [m for m in materiais if busca_material.lower() in m["nome"].lower()]
-
-    if not materiais:
-        st.info("Nenhum material cadastrado.")
+        materiais = [m for m in materiais_raw if busca_material.lower() in m["nome"].lower()]
     else:
+        materiais = materiais_raw
+
+    c_stats.metric("Total de Itens no Catálogo", len(materiais_raw))
+
+    # --- 3. LISTAGEM ESTILIZADA ---
+    if not materiais:
+        st.info("Nenhum material encontrado para esta busca.")
+    else:
+        # Cabeçalho da Lista
+        h1, h2, h3 = st.columns([6, 1, 1])
+        h1.caption("📦 NOME DO MATERIAL")
+        h2.caption("📝 EDITAR")
+        h3.caption("🗑️ EXCLUIR")
+
         for m in materiais:
-            col1, col2, col3 = st.columns([6,1,1])
-            with col1:
-                st.write(m["nome"])
-            with col2:
-                if st.button("✏️", key=f"edit_mat_{m['id']}"):
-                    st.session_state["edit_material"] = m
-                    st.rerun()
-            with col3:
-                if st.button("🗑️", key=f"del_mat_{m['id']}"):
-                    st.session_state["confirm_delete_material"] = m
-                    st.rerun()
+            # Container para cada linha para dar um aspecto de card
+            with st.container(border=True):
+                col1, col2, col3 = st.columns([6, 1, 1])
+                
+                with col1:
+                    st.markdown(f"**{m['nome'].upper()}**")
+                
+                with col2:
+                    if st.button("✏️", key=f"edit_mat_{m['id']}", help="Editar nome"):
+                        st.session_state["edit_material"] = m
+                        st.rerun()
+                
+                with col3:
+                    if st.button("🗑️", key=f"del_mat_{m['id']}", help="Excluir permanentemente"):
+                        st.session_state["confirm_delete_material"] = m
+                        st.rerun()
 
-    # -------------------------
-    # MODAL DE CONFIRMAR EXCLUSÃO
-    # -------------------------
+    # --- 4. MODAIS (FLOATING-LIKE) ---
+    # Usando st.dialog para um visual de popup profissional (disponível nas versões recentes do Streamlit)
     if "confirm_delete_material" in st.session_state:
-        mat = st.session_state["confirm_delete_material"]
-        st.error(f"⚠️ Atenção! Excluir '{mat['nome']}' apagará todos os itens vinculados a ele.")
-
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("Sim, excluir material", key="conf_del_def"):
-                try:
-                    # 1. Deleta itens vinculados (Foreign Key)
-                    supabase.table("itens_inventario").delete().eq("material_id", mat["id"]).execute()
-                    # 2. Deleta o material
-                    supabase.table("materiais").delete().eq("id", mat["id"]).execute()
-                    
-                    st.success("Material e itens removidos!")
-                    st.cache_data.clear() # ATUALIZA O CACHE
-                    del st.session_state["confirm_delete_material"]
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Erro ao excluir: {e}")
-        with col2:
-            if st.button("Cancelar", key="canc_del_def"):
+        @st.dialog("⚠️ Confirmar Exclusão")
+        def modal_delete():
+            mat = st.session_state["confirm_delete_material"]
+            st.warning(f"Você está prestes a excluir **{mat['nome']}**.")
+            st.error("Isso removerá todos os registros de inventário vinculados a este material!")
+            
+            if st.button("Sim, apagar tudo", type="primary", use_container_width=True):
+                supabase.table("itens_inventario").delete().eq("material_id", mat["id"]).execute()
+                supabase.table("materiais").delete().eq("id", mat["id"]).execute()
+                st.cache_data.clear()
                 del st.session_state["confirm_delete_material"]
                 st.rerun()
+            if st.button("Cancelar", use_container_width=True):
+                del st.session_state["confirm_delete_material"]
+                st.rerun()
+        modal_delete()
 
-    # -------------------------
-    # MODAL DE EDITAR MATERIAL
-    # -------------------------
     if "edit_material" in st.session_state:
-        mat = st.session_state["edit_material"]
-        st.subheader("✏️ Editar Material")
-        
-        novo_nome = st.text_input("Novo nome", value=mat["nome"], key="edit_nome_mat_input")
-
-        c1, c2 = st.columns(2)
-        with c1:
-            if st.button("Salvar alteração", key="save_edit_mat_btn"):
-                if not novo_nome:
-                    st.warning("Nome não pode ser vazio")
-                else:
+        @st.dialog("✏️ Editar Material")
+        def modal_edit():
+            mat = st.session_state["edit_material"]
+            novo_nome = st.text_input("Alterar nome para:", value=mat["nome"])
+            
+            if st.button("Salvar Alteração", type="primary", use_container_width=True):
+                if novo_nome:
                     supabase.table("materiais").update({"nome": novo_nome.strip()}).eq("id", mat["id"]).execute()
-                    st.success("Atualizado!")
-                    st.cache_data.clear() # ATUALIZA O CACHE
+                    st.cache_data.clear()
                     del st.session_state["edit_material"]
                     st.rerun()
-        with c2:
-            if st.button("Sair sem salvar", key="cancel_edit_mat_btn"):
+            if st.button("Sair", use_container_width=True):
                 del st.session_state["edit_material"]
                 st.rerun()
+        modal_edit()
 
 
 with aba4:
