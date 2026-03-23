@@ -840,11 +840,15 @@ with aba4:
                                     if logs:
                                         logs = sorted(logs, key=lambda x: x.get('created_at', ''), reverse=True)
                                         for l in logs:
-                                            # Pegamos o nome do usuário do log
-                                            resp = l.get('usuario', 'Sistema')
-                                            # Exibição mais detalhada
-                                            st.write(f"👤 **{resp}**")
-                                            st.caption(f"📝 {l['detalhes']} | ⏰ {l['created_at'][:16]}") # Mostra data/hora cortada
+                                            # Pega os dados usando .get() para evitar o KeyError
+                                            detalhes = l.get('detalhes', 'Sem detalhes')
+                                            usuario = l.get('usuario', 'Sistema')
+                                            data_hora = l.get('created_at', '') # Verifica o nome exato na sua tabela!
+                                    
+                                            st.write(f"👤 **{usuario}**")
+                                            # Só tenta fatiar a string se ela não estiver vazia
+                                            data_formatada = data_hora[:16] if data_hora else "Data Indisponível"
+                                            st.caption(f"📝 {detalhes} | ⏰ {data_formatada}")
                                             st.markdown("---")
                                     
                                     if st.button("Fechar Histórico", key=f"cls_aud_{i['id']}", use_container_width=True):
