@@ -478,15 +478,7 @@ with aba2:
                 st.rerun()
         modal_edit_amb()
 
-if 'menu_anterior' not in st.session_state:
-    st.session_state.menu_anterior = ""
 
-# Se mudou de aba, limpa os popups pendentes
-if st.session_state.get('atual_tab') != "Aba 3":
-    if "edit_material" in st.session_state:
-        del st.session_state["edit_material"]
-    if "confirm_delete_material" in st.session_state:
-        del st.session_state["confirm_delete_material"]
 
 with aba3:
     st.subheader("🛠️ Gestão do Catálogo de Materiais")
