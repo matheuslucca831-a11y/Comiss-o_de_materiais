@@ -920,10 +920,10 @@ with aba4:
 
 
 with aba5:
-    st.subheader("📊 Relatórios Avançados")
+    st.subheader("📊 Relatório Executivo de Inventário")
     
     if estrutura:
-        # 1. Preparar os dados (Planilha plana é melhor para filtros)
+        # 1. Preparar os dados (Planilha plana para análise)
         dados_excel = []
         for unidade, ambientes_dict in estrutura.items():
             for ambiente, itens_lista in ambientes_dict.items():
@@ -934,65 +934,68 @@ with aba5:
                         "Item": i['mat_nome'],
                         "Status": i['status'],
                         "Patrimônio": i['patrimonio'],
-                        "Observação": i.get('observacao', ''),
-                        "Data Extração": datetime.now().strftime('%d/%m/%Y')
+                        "Observação": i.get('observacao', '')
                     })
         
         df_export = pd.DataFrame(dados_excel)
-    
-        # 2. Criar o arquivo Excel com "Superpoderes"
+        user_relatorio = st.session_state.get("nome_admin", "Usuário Desconhecido") #
+
+        # 2. Configuração do Excel
         buffer = io.BytesIO()
         with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-            df_export.to_excel(writer, index=False, sheet_name='Inventario_Geral')
+            df_export.to_excel(writer, index=False, sheet_name='Inventário')
             
             workbook  = writer.book
-            worksheet = writer.sheets['Inventario_Geral']
-    
-            # --- DEFINIÇÃO DE ESTILOS ---
-            header_fmt = workbook.add_format({'bold': True, 'bg_color': '#1F4E78', 'font_color': 'white', 'border': 1})
-            urgente_fmt = workbook.add_format({'bg_color': '#FFC7CE', 'font_color': '#9C0006'}) # Vermelho claro
-            atencao_fmt = workbook.add_format({'bg_color': '#FFEB9C', 'font_color': '#9C6500'}) # Amarelo
-            ok_fmt = workbook.add_format({'bg_color': '#C6EFCE', 'font_color': '#006100'})      # Verde claro
+            worksheet = writer.sheets['Inventário']
 
-            # --- APLICAR RECURSOS ---
-            # 1. Ajustar cabeçalho
+            # --- ESTILOS PROFISSIONAIS ---
+            header_fmt = workbook.add_format({
+                'bold': True, 'font_color': 'white', 'bg_color': '#2F75B5',
+                'border': 1, 'align': 'center', 'valign': 'vcenter'
+            })
+            
+            # --- RECURSOS AVANÇADOS ---
+            # A. Ajustar Cabeçalho e Filtros
             for col_num, value in enumerate(df_export.columns.values):
                 worksheet.write(0, col_num, value, header_fmt)
-
-            # 2. Ativar Autofiltro em todas as colunas
             worksheet.autofilter(0, 0, len(df_export), len(df_export.columns) - 1)
             
-            # 3. Formatação Condicional na coluna 'Status' (Coluna D no Excel = índice 3)
-            # Se status for 'satisfatorio' -> Verde
-            worksheet.conditional_format(1, 3, len(df_export), 3, {
-                'type':     'cell',
-                'criteria': 'equal to',
-                'value':    '"satisfatorio"',
-                'format':   ok_fmt
-            })
-            # Se status for 'trocar_urgente' -> Vermelho
-            worksheet.conditional_format(1, 3, len(df_export), 3, {
-                'type':     'cell',
-                'criteria': 'equal to',
-                'value':    '"trocar_urgente"',
-                'format':   urgente_fmt
-            })
-
-            # 4. Congelar a primeira linha (cabeçalho sempre visível ao rolar)
+            # B. Congelar Painéis (Top e Esquerda)
             worksheet.freeze_panes(1, 0)
 
-            # 5. Ajustar largura automática das colunas
-            worksheet.set_column('A:G', 22)
+            # C. Formatação Condicional com Conjunto de Ícones (Sinalização)
+            # Verde para satisfatório, Amarelo para atenção, Vermelho para urgente
+            worksheet.conditional_format(1, 3, len(df_export), 3, {
+                'type': 'icon_set',
+                'icon_style': '3_traffic_lights',
+                'icons': [
+                    {'unassigned': True}, # satisfatorio (verde)
+                    {'unassigned': True}, # trocar_nao_urgente (amarelo)
+                    {'unassigned': True}  # trocar_urgente (vermelho)
+                ]
+            })
+
+            # D. Formatação de Cores Alternadas (Zebra)
+            for row in range(1, len(df_export) + 1):
+                if row % 2 == 0:
+                    worksheet.set_row(row, None, workbook.add_format({'bg_color': '#F2F2F2'}))
+
+            # E. Ajuste de Colunas Automático
+            worksheet.set_column('A:B', 25)
+            worksheet.set_column('C:C', 35)
+            worksheet.set_column('D:F', 20)
+
+            # F. Rodapé de Identificação
+            worksheet.write(len(df_export) + 2, 0, f"Relatório gerado por: {user_relatorio}")
+            worksheet.write(len(df_export) + 3, 0, f"Data: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
 
         # 3. Botão de Download
         st.download_button(
-            label="📥 Gerar Planilha Inteligente",
+            label="📥 Baixar Relatório Profissional (.xlsx)",
             data=buffer.getvalue(),
-            file_name=f"Relatorio_Inventario_{datetime.now().strftime('%d_%m_%Y')}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            file_name=f"Relatorio_USF_{datetime.now().strftime('%d_%m_%Y')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
         )
-        
-        # Dica visual no Streamlit
-        st.info("💡 A planilha gerada já contém filtros automáticos e cores por status.")
     else:
-        st.warning("Não há dados filtrados para exportar.")
+        st.warning("⚠️ Não há dados disponíveis para gerar o relatório no momento.")
