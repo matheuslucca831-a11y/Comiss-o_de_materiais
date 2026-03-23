@@ -881,7 +881,7 @@ with aba4:
                                                     "patrimonio": n_pat,
                                                     "status": n_sta,
                                                     "observacao": n_obs
-                                                }).eq("id", i["id"]).execute(
+                                                }).eq("id", i["id"]).execute()
                                     
                                                 # 2. GERA UM LOG NO HISTÓRICO (OPCIONAL, MAS RECOMENDADO)
                                                 usuario_logado = st.session_state.get("usuario_nome", "Usuário Desconhecido")
