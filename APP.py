@@ -693,31 +693,26 @@ with aba4:
                             if material_id:
                                 status_load.update(label="💾 Gravando no banco de dados...")
                                 
-                                usuario_logado = st.session_state.get("usuario_nome", "Usuário Desconhecido")
+                                # Define o usuário padrão para o log
+                                user_atual = st.session_state.get("usuario_nome", "Usuário Desconhecido")
                                 
+                                # Inserção na tabela de itens (conforme sua estrutura)
                                 res_item = supabase.table("itens_inventario").insert({
                                     "ambiente_id": ambiente_sel["id"],
                                     "material_id": material_id,
                                     "patrimonio": patrimonio,
                                     "status": status_item,
                                     "observacao": obs_item
-                                    # NÃO coloque "criado_por" aqui, pois a coluna não existe!
                                 }).execute()
                                 
                                 if res_item.data:
                                     novo_id = res_item.data[0]["id"]
-                                    # O registro de QUEM fez a ação vai apenas para a tabela de histórico
+                                    
+                                    # Registramos apenas UM log de histórico com os detalhes completos
                                     supabase.table("historico_alteracoes").insert({
                                         "item_id": novo_id,
-                                        "detalhes": "Cadastro inicial do item",
-                                        "usuario": st.session_state.get("usuario_nome", "Matheus Lucca") 
-                                    }).execute()
-                                
-                                    # 3. Gravamos o primeiro log
-                                    supabase.table("historico_alteracoes").insert({
-                                        "item_id": novo_id,
-                                        "detalhes": f"Item cadastrado com status {status_item}",
-                                        "usuario": user_atual  # <--- Garanta que a coluna 'usuario' existe no banco
+                                        "detalhes": f"Cadastro inicial (Status: {status_item})",
+                                        "usuario": user_atual  
                                     }).execute()
                                     
                                     st.cache_data.clear()
@@ -725,8 +720,8 @@ with aba4:
                                     status_load.update(label="✅ Cadastro concluído!", state="complete")
                                     st.toast("✅ Item salvo e consulta atualizada!", icon='🚀')
                                     st.rerun()
-                            else:
-                                status_load.update(label="⚠️ Erro: Material não selecionado.", state="error")
+                                else:
+                                    status_load.update(label="⚠️ Erro: Falha ao gravar item.", state="error")
 
                         except Exception as e:
                             status_load.update(label=f"❌ Erro ao salvar: {e}", state="error")
