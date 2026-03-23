@@ -791,47 +791,42 @@ with aba4:
                                     st.caption(f"📝 {i['observacao']}")
                                     
                             with col_acoes:
-                                with st.popover("⚙️", help="Ações"):
-                                    st.write(f"**Item:** {i['mat_nome']}")
-                                    
-                                    # EDITAR: Fecha a engrenagem e abre o formulário
-                                    if st.button("✏️ Editar", key=f"btn_ed_{i['id']}", use_container_width=True):
-                                        # Limpa estados antigos para não encavalar
-                                        st.session_state.pop("view_audit_id", None)
-                                        st.session_state.pop("confirm_delete_item_id", None)
+                                # 1. VERIFICAÇÃO CRÍTICA: Se este item está sendo editado ou visualizado, ESCONDE a engrenagem
+                                id_editando = st.session_state.get("edit_item_id")
+                                id_vendo_hist = st.session_state.get("view_audit_id")
+                            
+                                if id_editando != i["id"] and id_vendo_hist != i["id"]:
+                                    # Só mostra o Popover se NÃO estiver mexendo neste item
+                                    with st.popover("⚙️", help="Ações", use_container_width=True):
+                                        st.write(f"**Item:** {i['mat_nome']}")
                                         
-                                        # Define o novo estado e força o recarregamento total
-                                        st.session_state["edit_item_id"] = i["id"]
-                                        st.rerun() 
-                                        
-                                    # HISTÓRICO: Fecha a engrenagem e abre o histórico
-                                    if st.button("📜 Histórico", key=f"btn_aud_{i['id']}", use_container_width=True):
-                                        # Limpa estados antigos
-                                        st.session_state.pop("edit_item_id", None)
-                                        st.session_state.pop("confirm_delete_item_id", None)
-                                        
-                                        # Define o novo estado e força o recarregamento total
-                                        st.session_state["view_audit_id"] = i["id"]
-                                        st.rerun()
-                                        
-                                    st.markdown("---")
-                                    
-                                    # EXCLUIR: Deleta e limpa tudo de uma vez
-                                    if st.button("🗑️ Excluir", key=f"btn_del_{i['id']}", use_container_width=True, type="primary"):
-                                        supabase.table("historico_alteracoes").delete().eq("item_id", i["id"]).execute()
-                                        supabase.table("itens_inventario").delete().eq("id", i["id"]).execute()
-                                        
-                                        # Limpa cache e estados para a tela subir "virgem"
-                                        st.cache_data.clear()
+                                        if st.button("✏️ Editar", key=f"btn_ed_{i['id']}", use_container_width=True):
+                                            st.session_state["edit_item_id"] = i["id"]
+                                            st.session_state.pop("view_audit_id", None) # Limpa histórico se houver
+                                            st.rerun() 
+                                            
+                                        if st.button("📜 Histórico", key=f"btn_aud_{i['id']}", use_container_width=True):
+                                            st.session_state["view_audit_id"] = i["id"]
+                                            st.session_state.pop("edit_item_id", None) # Limpa edição se houver
+                                            st.rerun()
+                                            
+                                        st.markdown("---")
+                                        if st.button("🗑️ Excluir", key=f"btn_del_{i['id']}", use_container_width=True, type="primary"):
+                                            supabase.table("historico_alteracoes").delete().eq("item_id", i["id"]).execute()
+                                            supabase.table("itens_inventario").delete().eq("id", i["id"]).execute()
+                                            st.cache_data.clear()
+                                            st.rerun()
+                                else:
+                                    # Se estiver editando ou vendo histórico, mostra um botão de fechar no lugar da engrenagem
+                                    if st.button("❌", key=f"btn_cls_{i['id']}", help="Fechar painel"):
                                         st.session_state.pop("edit_item_id", None)
                                         st.session_state.pop("view_audit_id", None)
-                                        
-                                        st.toast(f"✅ Item excluído!", icon="🗑️")
                                         st.rerun()
                             # --- RENDERIZAÇÃO DOS MODAIS DE EDIÇÃO/HISTÓRICO ---
                             if st.session_state.get("view_audit_id") == i["id"]:
                                 with st.container(border=True):
-                                    st.info(f"Histórico de Alterações: {i['mat_nome']}")
+                                    st.info(f"📜 Histórico: {i['mat_nome']}")
+                                    # ... seu código de busca de logs aqui ...
                                     res = supabase.table("historico_alteracoes").select("*").eq("item_id", i["id"]).execute()
                                     logs = res.data
                                     if logs:
