@@ -693,18 +693,27 @@ with aba4:
                             if material_id:
                                 status_load.update(label="💾 Gravando no banco de dados...")
                                 
+                                usuario_logado = st.session_state.get("usuario_nome", "Usuário Desconhecido")
+                                
                                 res_item = supabase.table("itens_inventario").insert({
                                     "ambiente_id": ambiente_sel["id"],
                                     "material_id": material_id,
                                     "patrimonio": patrimonio,
                                     "status": status_item,
-                                    "observacao": obs_item
+                                    "observacao": obs_item,
+                                    "criado_por": usuario_logado # Opcional: registrar na tabela do item
                                 }).execute()
                                 
                                 if res_item.data:
-                                    # --- CORREÇÃO DO BUG AQUI ---
-                                    # Limpamos o cache SEMPRE que o item é gravado com sucesso
-                                    st.cache_data.clear() 
+                                    # ADICIONE ESTE INSERT AQUI PARA O LOG DE CRIAÇÃO
+                                    novo_id = res_item.data[0]["id"]
+                                    supabase.table("historico_alteracoes").insert({
+                                        "item_id": novo_id,
+                                        "detalhes": f"Item criado com status {status_item}",
+                                        "usuario": usuario_logado # Certifique-se que esta coluna existe no Supabase
+                                    }).execute()
+                                    
+                                    st.cache_data.clear()
                                     
                                     status_load.update(label="✅ Cadastro concluído!", state="complete")
                                     st.toast("✅ Item salvo e consulta atualizada!", icon='🚀')
@@ -859,12 +868,15 @@ with aba4:
                                                 }).eq("id", i["id"]).execute()
                                     
                                                 # 2. GERA UM LOG NO HISTÓRICO (OPCIONAL, MAS RECOMENDADO)
+                                                usuario_logado = st.session_state.get("usuario_nome", "Usuário Desconhecido")
+                                                
                                                 detalhe_log = f"Editado: Pat {n_pat}, Status {n_sta}"
                                                 supabase.table("historico_alteracoes").insert({
                                                     "item_id": i["id"],
-                                                    "detalhes": detalhe_log
+                                                    "detalhes": detalhe_log,
+                                                    "usuario": usuario_logado # <--- ADICIONE ESTA LINHA
                                                 }).execute()
-                                    
+                                                                                    
                                                 # 3. LIMPA O CACHE E O ESTADO PARA ATUALIZAR A TELA
                                                 st.cache_data.clear()
                                                 st.session_state.pop("edit_item_id", None)
