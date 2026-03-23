@@ -700,15 +700,18 @@ with aba4:
                                     "material_id": material_id,
                                     "patrimonio": patrimonio,
                                     "status": status_item,
-                                    "observacao": obs_item,
-                                    "criado_por": usuario_logado # Opcional: registrar na tabela do item
+                                    "observacao": obs_item
+                                    # NÃO coloque "criado_por" aqui, pois a coluna não existe!
                                 }).execute()
                                 
                                 if res_item.data:
-                                    # 1. Pegamos o ID do item recém criado
                                     novo_id = res_item.data[0]["id"]
-                                    # 2. Pegamos o usuário (ajuste para st.session_state['usuario'])
-                                    user_atual = st.session_state.get("usuario_nome", "Matheus Lucca") 
+                                    # O registro de QUEM fez a ação vai apenas para a tabela de histórico
+                                    supabase.table("historico_alteracoes").insert({
+                                        "item_id": novo_id,
+                                        "detalhes": "Cadastro inicial do item",
+                                        "usuario": st.session_state.get("usuario_nome", "Matheus Lucca") 
+                                    }).execute()
                                 
                                     # 3. Gravamos o primeiro log
                                     supabase.table("historico_alteracoes").insert({
@@ -842,18 +845,20 @@ with aba4:
                                     res = supabase.table("historico_alteracoes").select("*").eq("item_id", i["id"]).execute()
                                     logs = res.data
                                     if logs:
-                                        logs = sorted(logs, key=lambda x: x.get('created_at', ''), reverse=True)
+                                        # Ordena pela coluna de data que existe na sua tabela de histórico
+                                        logs = sorted(logs, key=lambda x: x.get('data_alteracao', ''), reverse=True)
+                                        
                                         for l in logs:
-                                            # Pega os dados usando .get() para evitar o KeyError
-                                            detalhes = l.get('detalhes', 'Sem detalhes')
-                                            usuario = l.get('usuario', 'Sistema')
-                                            data_hora = l.get('created_at', '') # Verifica o nome exato na sua tabela!
-                                    
-                                            st.write(f"👤 **{usuario}**")
-                                            # Só tenta fatiar a string se ela não estiver vazia
-                                            data_formatada = data_hora[:16] if data_hora else "Data Indisponível"
-                                            st.caption(f"📝 {detalhes} | ⏰ {data_formatada}")
-                                            st.markdown("---")
+                                            u = l.get('usuario', 'Sistema')
+                                            d = l.get('detalhes', 'Sem detalhes')
+                                            raw_date = l.get('data_alteracao', '')
+                                            
+                                            # Formatação para aparecer o ícone de relógio bonitinho
+                                            t_formated = raw_date[:16].replace('T', ' ') if raw_date else "Sem data"
+                                            
+                                            st.write(f"👤 **{u}**")
+                                            st.caption(f"📝 {d} | ⏰ {t_formated}")
+                                            st.divider()
                                     
                                     if st.button("Fechar Histórico", key=f"cls_aud_{i['id']}", use_container_width=True):
                                         del st.session_state["view_audit_id"]
@@ -874,9 +879,9 @@ with aba4:
                                                 # 1. ATUALIZA O ITEM NO SUPABASE
                                                 supabase.table("itens_inventario").update({
                                                     "patrimonio": n_pat,
-                                                    "observacao": n_obs,
-                                                    "status": n_sta
-                                                }).eq("id", i["id"]).execute()
+                                                    "status": n_sta,
+                                                    "observacao": n_obs
+                                                }).eq("id", i["id"]).execute(
                                     
                                                 # 2. GERA UM LOG NO HISTÓRICO (OPCIONAL, MAS RECOMENDADO)
                                                 usuario_logado = st.session_state.get("usuario_nome", "Usuário Desconhecido")
@@ -886,8 +891,8 @@ with aba4:
                                                 
                                                 supabase.table("historico_alteracoes").insert({
                                                     "item_id": i["id"],
-                                                    "detalhes": detalhe_log,
-                                                    "usuario": user_atual # <--- Isso registra quem editou
+                                                    "detalhes": f"Editado: Pat {n_pat}, Status {n_sta}",
+                                                    "usuario": st.session_state.get("usuario_nome", "Matheus Lucca")
                                                 }).execute()
                                                                                                                                     
                                                 # 3. LIMPA O CACHE E O ESTADO PARA ATUALIZAR A TELA
