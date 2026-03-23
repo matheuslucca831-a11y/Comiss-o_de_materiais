@@ -694,9 +694,7 @@ with aba4:
                                 status_load.update(label="💾 Gravando no banco de dados...")
                                 
                                 # Define o usuário padrão para o log
-                                user_atual = st.session_state.get("nome_exibicao", 
-                                             st.session_state.get("usuario_nome", 
-                                             st.session_state.get("usuario", "Usuário Desconhecido")))
+                                user_atual = st.session_state.get("nome_admin", "Usuário Desconhecido")
                                 
                                 # Inserção na tabela de itens (conforme sua estrutura)
                                 res_item = supabase.table("itens_inventario").insert({
@@ -888,8 +886,7 @@ with aba4:
                                         try:
                                             # 1. Primeiro definimos quem está logado (ou o nome padrão)
                                             # Se você tiver um sistema de login, use st.session_state['usuario_nome']
-                                            user_atual = st.session_state.get("usuario_nome", "Usuário Desconhecido") 
-                                        
+                                            user_atual = st.session_state.get("nome_admin", "Usuário Desconhecido")                                  
                                             with st.spinner("Atualizando dados..."):
                                                 # 2. Atualiza a tabela de itens
                                                 supabase.table("itens_inventario").update({
