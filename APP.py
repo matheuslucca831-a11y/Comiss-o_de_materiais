@@ -19,6 +19,10 @@ key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im91
 supabase = create_client(url, key)
 
 # --- 2. INICIALIZAÇÃO DE SEGURANÇA E COOKIES ---
+if 'edit_material' not in st.session_state:
+    st.session_state['edit_material'] = None
+    del st.session_state['edit_material']
+
 
 # 1. Instancia o manager APENAS UMA VEZ
 cookie_manager = stx.CookieManager(key="cookie_manager_global")
