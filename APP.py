@@ -787,7 +787,7 @@ with aba5:
 
         # 3. Botão de Download
         st.download_button(
-            label="📥 Gerar Planilha Inteligente",
+            label="📥 Gerar Planilha",
             data=buffer.getvalue(),
             file_name=f"Relatorio_Inventario_{datetime.now().strftime('%d_%m_%Y')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
