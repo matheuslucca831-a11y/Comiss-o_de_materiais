@@ -791,28 +791,41 @@ with aba4:
                                     st.caption(f"📝 {i['observacao']}")
                                     
                             with col_acoes:
-                                # A engrenagem agora fica sempre disponível para velocidade
+                                # O popover fecha sozinho sempre que houver um st.rerun()
                                 with st.popover("⚙️", help="Ações"):
-                                    st.write(f"**Opções:** {i['mat_nome']}")
+                                    st.write(f"**Item:** {i['mat_nome']}")
                                     
+                                    # EDITAR: Define o ID e recarrega a página (o menu some)
                                     if st.button("✏️ Editar", key=f"btn_ed_{i['id']}", use_container_width=True):
                                         st.session_state["edit_item_id"] = i["id"]
+                                        # Limpa outros estados para não encavalar telas
+                                        st.session_state.pop("view_audit_id", None)
                                         st.rerun()
                                         
+                                    # HISTÓRICO: Define o ID e recarrega a página (o menu some)
                                     if st.button("📜 Histórico", key=f"btn_aud_{i['id']}", use_container_width=True):
                                         st.session_state["view_audit_id"] = i["id"]
+                                        st.session_state.pop("edit_item_id", None)
                                         st.rerun()
                                         
                                     st.markdown("---")
-                                    # EXCLUSÃO DIRETA: Um clique dentro do popover e já apaga
+                                    
+                                    # EXCLUIR: Deleta e recarrega (o menu some e o item desaparece)
                                     if st.button("🗑️ Excluir", key=f"btn_del_{i['id']}", use_container_width=True, type="primary"):
-                                        # Execução imediata no banco
-                                        supabase.table("historico_alteracoes").delete().eq("item_id", i["id"]).execute()
-                                        supabase.table("itens_inventario").delete().eq("id", i["id"]).execute()
-                                        
-                                        st.cache_data.clear() # Limpa cache para atualizar a lista
-                                        st.toast(f"✅ Item '{i['mat_nome']}' excluído!", icon="🗑️")
-                                        st.rerun()
+                                        try:
+                                            # Operações de banco
+                                            supabase.table("historico_alteracoes").delete().eq("item_id", i["id"]).execute()
+                                            supabase.table("itens_inventario").delete().eq("id", i["id"]).execute()
+                                            
+                                            # Limpeza de cache e reset de estados de tela
+                                            st.cache_data.clear()
+                                            st.session_state.pop("edit_item_id", None)
+                                            st.session_state.pop("view_audit_id", None)
+                                            
+                                            st.toast(f"✅ Item removido com sucesso!", icon="🗑️")
+                                            st.rerun()
+                                        except Exception as e:
+                                            st.error(f"Erro ao excluir: {e}")
 
                             # --- RENDERIZAÇÃO DOS MODAIS DE EDIÇÃO/HISTÓRICO ---
                             if st.session_state.get("view_audit_id") == i["id"]:
