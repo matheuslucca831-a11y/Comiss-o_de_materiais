@@ -741,50 +741,95 @@ with aba5:
         
         df_export = pd.DataFrame(dados_excel)
     
-        # 2. Criar o arquivo Excel com "Superpoderes"
         buffer = io.BytesIO()
         with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-            df_export.to_excel(writer, index=False, sheet_name='Inventario_Geral')
-            
+            df_export.to_excel(writer, index=False, startrow=2, sheet_name='Inventario_Geral')
+        
             workbook  = writer.book
             worksheet = writer.sheets['Inventario_Geral']
-    
-            # --- DEFINIÇÃO DE ESTILOS ---
-            header_fmt = workbook.add_format({'bold': True, 'bg_color': '#1F4E78', 'font_color': 'white', 'border': 1})
-            urgente_fmt = workbook.add_format({'bg_color': '#FFC7CE', 'font_color': '#9C0006'}) # Vermelho claro
-            atencao_fmt = workbook.add_format({'bg_color': '#FFEB9C', 'font_color': '#9C6500'}) # Amarelo
-            ok_fmt = workbook.add_format({'bg_color': '#C6EFCE', 'font_color': '#006100'})      # Verde claro
-
-            # --- APLICAR RECURSOS ---
-            # 1. Ajustar cabeçalho
+        
+            # ---------- ESTILOS ----------
+            titulo_fmt = workbook.add_format({
+                'bold': True,
+                'font_size': 14
+            })
+        
+            header_fmt = workbook.add_format({
+                'bold': True,
+                'bg_color': '#1F4E78',
+                'font_color': 'white',
+                'border': 1,
+                'align': 'center',
+                'valign': 'vcenter'
+            })
+        
+            zebra_fmt = workbook.add_format({
+                'bg_color': '#F7F7F7'
+            })
+        
+            urgente_fmt = workbook.add_format({
+                'bg_color': '#FFC7CE',
+                'font_color': '#9C0006'
+            })
+        
+            atencao_fmt = workbook.add_format({
+                'bg_color': '#FFEB9C',
+                'font_color': '#9C6500'
+            })
+        
+            ok_fmt = workbook.add_format({
+                'bg_color': '#C6EFCE',
+                'font_color': '#006100'
+            })
+        
+            # ---------- TÍTULO ----------
+            worksheet.merge_range('A1:G1', 'RELATÓRIO GERAL DE INVENTÁRIO', titulo_fmt)
+            worksheet.write('A2', f"Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+        
+            # ---------- CABEÇALHO ----------
             for col_num, value in enumerate(df_export.columns.values):
-                worksheet.write(0, col_num, value, header_fmt)
-
-            # 2. Ativar Autofiltro em todas as colunas
-            worksheet.autofilter(0, 0, len(df_export), len(df_export.columns) - 1)
-            
-            # 3. Formatação Condicional na coluna 'Status' (Coluna D no Excel = índice 3)
-            # Se status for 'satisfatorio' -> Verde
-            worksheet.conditional_format(1, 3, len(df_export), 3, {
-                'type':     'cell',
-                'criteria': 'equal to',
-                'value':    '"satisfatorio"',
-                'format':   ok_fmt
+                worksheet.write(2, col_num, value, header_fmt)
+        
+            # ---------- TABELA EXCEL (PROFISSIONAL) ----------
+            (max_row, max_col) = df_export.shape
+        
+            worksheet.add_table(2, 0, max_row + 2, max_col - 1, {
+                'columns': [{'header': col} for col in df_export.columns],
+                'style': 'Table Style Medium 9'
             })
-            # Se status for 'trocar_urgente' -> Vermelho
-            worksheet.conditional_format(1, 3, len(df_export), 3, {
-                'type':     'cell',
-                'criteria': 'equal to',
-                'value':    '"trocar_urgente"',
-                'format':   urgente_fmt
+        
+            # ---------- ZEBRA ----------
+            worksheet.conditional_format(3, 0, max_row + 2, max_col - 1, {
+                'type': 'formula',
+                'criteria': '=MOD(ROW(),2)=0',
+                'format': zebra_fmt
             })
-
-            # 4. Congelar a primeira linha (cabeçalho sempre visível ao rolar)
-            worksheet.freeze_panes(1, 0)
-
-            # 5. Ajustar largura automática das colunas
-            worksheet.set_column('A:G', 22)
-
+        
+            # ---------- CORES STATUS ----------
+            worksheet.conditional_format(3, 3, max_row + 2, 3, {
+                'type': 'cell',
+                'criteria': 'equal to',
+                'value': '"satisfatorio"',
+                'format': ok_fmt
+            })
+        
+            worksheet.conditional_format(3, 3, max_row + 2, 3, {
+                'type': 'cell',
+                'criteria': 'equal to',
+                'value': '"trocar_urgente"',
+                'format': urgente_fmt
+            })
+        
+            # ---------- CONGELAR CABEÇALHO ----------
+            worksheet.freeze_panes(3, 0)
+        
+            # ---------- AUTO WIDTH ----------
+            for i, col in enumerate(df_export.columns):
+                largura = max(
+                    df_export[col].astype(str).map(len).max(),
+                    len(col)
+                ) + 3
+                worksheet.set_column(i, i, largura)
         # 3. Botão de Download
         st.download_button(
             label="📥 Gerar Planilha",
