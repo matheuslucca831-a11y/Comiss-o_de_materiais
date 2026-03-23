@@ -503,7 +503,7 @@ with aba3:
         chave_material = f"input_novo_material_{st.session_state.reset_mat_count}"
         novo_material = col_in.text_input("Nome do Material", placeholder="Ex: Cadeira de Rodas", key=chave_material, label_visibility="collapsed")
         
-        if col_btn.button("🚀 Adicionar", use_container_width=True):
+        if col_btn.button(" Adicionar", use_container_width=True):
             if not novo_material:
                 st.toast("⚠️ Digite o nome do material", icon="🔤")
             else:
