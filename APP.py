@@ -849,10 +849,31 @@ with aba4:
                                     
                                     c1, c2 = st.columns(2)
                                     if c1.button("Salvar Alterações", key=f"sv_{i['id']}", use_container_width=True):
-                                        # (Lógica de update do banco mantida aqui...)
-                                        st.cache_data.clear()
-                                        del st.session_state["edit_item_id"]
-                                        st.rerun()
+                                        try:
+                                            with st.spinner("Atualizando banco de dados..."):
+                                                # 1. ATUALIZA O ITEM NO SUPABASE
+                                                supabase.table("itens_inventario").update({
+                                                    "patrimonio": n_pat,
+                                                    "observacao": n_obs,
+                                                    "status": n_sta
+                                                }).eq("id", i["id"]).execute()
+                                    
+                                                # 2. GERA UM LOG NO HISTÓRICO (OPCIONAL, MAS RECOMENDADO)
+                                                detalhe_log = f"Editado: Pat {n_pat}, Status {n_sta}"
+                                                supabase.table("historico_alteracoes").insert({
+                                                    "item_id": i["id"],
+                                                    "detalhes": detalhe_log
+                                                }).execute()
+                                    
+                                                # 3. LIMPA O CACHE E O ESTADO PARA ATUALIZAR A TELA
+                                                st.cache_data.clear()
+                                                st.session_state.pop("edit_item_id", None)
+                                                
+                                                st.toast("✅ Alterações salvas com sucesso!", icon="🚀")
+                                                st.rerun()
+                                                
+                                        except Exception as e:
+                                            st.error(f"Erro ao salvar no banco: {e}")
                                     if c2.button("Cancelar", key=f"cn_{i['id']}", use_container_width=True):
                                         del st.session_state["edit_item_id"]
                                         st.rerun()
