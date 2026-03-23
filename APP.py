@@ -434,49 +434,7 @@ with aba2:
                             st.session_state["confirm_delete_ambiente"] = a
                             st.rerun()
 
-    # --- 4. MODAIS PROFISSIONAIS (DIALOGS) ---
-    
-    # MODAL DE EXCLUSÃO
-    if "confirm_delete_ambiente" in st.session_state:
-        @st.dialog("⚠️ Atenção: Excluir Ambiente")
-        def modal_del_amb():
-            amb = st.session_state["confirm_delete_ambiente"]
-            st.write(f"Você tem certeza que deseja excluir o ambiente **{amb['nome']}**?")
-            st.error("Todos os itens de inventário dentro deste ambiente também serão apagados!")
-            
-            if st.button("Confirmar Exclusão", type="primary", use_container_width=True):
-                try:
-                    supabase.table("itens_inventario").delete().eq("ambiente_id", amb["id"]).execute()
-                    supabase.table("ambientes").delete().eq("id", amb["id"]).execute()
-                    st.cache_data.clear()
-                    del st.session_state["confirm_delete_ambiente"]
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Erro ao excluir: {e}")
-            
-            if st.button("Cancelar", use_container_width=True):
-                del st.session_state["confirm_delete_ambiente"]
-                st.rerun()
-        modal_del_amb()
 
-    # MODAL DE EDIÇÃO
-    if "edit_ambiente" in st.session_state:
-        @st.dialog("✏️ Editar Nome do Ambiente")
-        def modal_edit_amb():
-            amb = st.session_state["edit_ambiente"]
-            novo_nome = st.text_input("Novo nome:", value=amb["nome"])
-            
-            if st.button("Salvar Alteração", type="primary", use_container_width=True):
-                if novo_nome:
-                    supabase.table("ambientes").update({"nome": novo_nome.strip()}).eq("id", amb["id"]).execute()
-                    st.cache_data.clear()
-                    del st.session_state["edit_ambiente"]
-                    st.rerun()
-            
-            if st.button("Sair", use_container_width=True):
-                del st.session_state["edit_ambiente"]
-                st.rerun()
-        modal_edit_amb()
 
 
 
@@ -552,50 +510,6 @@ with aba3:
                     if st.button("🗑️", key=f"del_mat_{m['id']}", help="Excluir permanentemente"):
                         st.session_state["confirm_delete_material"] = m
                         st.rerun()
-
-    # --- 4. MODAIS (FLOATING-LIKE) ---
-    # Usando st.dialog para um visual de popup profissional (disponível nas versões recentes do Streamlit)
-    if "confirm_delete_material" in st.session_state:
-        @st.dialog("⚠️ Confirmar Exclusão")
-        def modal_delete():
-            mat = st.session_state["confirm_delete_material"]
-            st.warning(f"Você está prestes a excluir **{mat['nome']}**.")
-            st.error("Isso removerá todos os registros de inventário vinculados a este material!")
-            
-            if st.button("Sim, apagar tudo", type="primary", use_container_width=True):
-                supabase.table("itens_inventario").delete().eq("material_id", mat["id"]).execute()
-                supabase.table("materiais").delete().eq("id", mat["id"]).execute()
-                st.cache_data.clear()
-                del st.session_state["confirm_delete_material"]
-                st.rerun()
-            if st.button("Cancelar", use_container_width=True):
-                del st.session_state["confirm_delete_material"]
-                st.rerun()
-        modal_delete()
-
-    if "edit_material" in st.session_state:
-        @st.dialog("✏️ Editar Material")
-        def modal_edit():
-            # Pega o material e já remove da sessão para ele não abrir no próximo rerun sozinho
-            mat = st.session_state["edit_material"]
-            
-            novo_nome = st.text_input("Alterar nome para:", value=mat["nome"])
-            
-            col1, col2 = st.columns(2)
-            if col1.button("Salvar", type="primary", use_container_width=True):
-                if novo_nome:
-                    supabase.table("materiais").update({"nome": novo_nome.strip()}).eq("id", mat["id"]).execute()
-                    st.cache_data.clear()
-                    # LIMPEZA CRÍTICA AQUI
-                    del st.session_state["edit_material"]
-                    st.rerun()
-                    
-            if col2.button("Sair", use_container_width=True):
-                # LIMPEZA CRÍTICA AQUI
-                del st.session_state["edit_material"]
-                st.rerun()
-                
-        modal_edit()
 
 
 with aba4:
@@ -980,3 +894,74 @@ with aba5:
         st.info("💡 A planilha gerada já contém filtros automáticos e cores por status.")
     else:
         st.warning("Não há dados filtrados para exportar.")
+
+
+# --- LÓGICA DE DIÁLOGOS GLOBAL (FORA DAS ABAS) ---
+
+# 1. Modais de Ambiente (Aba 2)
+if "confirm_delete_ambiente" in st.session_state:
+    @st.dialog("⚠️ Excluir Ambiente")
+    def modal_del_amb():
+        amb = st.session_state["confirm_delete_ambiente"]
+        st.error(f"Deseja excluir '{amb['nome']}' e todos os seus itens?")
+        c1, c2 = st.columns(2)
+        if c1.button("Sim, excluir", type="primary", use_container_width=True):
+            supabase.table("itens_inventario").delete().eq("ambiente_id", amb["id"]).execute()
+            supabase.table("ambientes").delete().eq("id", amb["id"]).execute()
+            st.cache_data.clear()
+            del st.session_state["confirm_delete_ambiente"]
+            st.rerun()
+        if c2.button("Cancelar", use_container_width=True):
+            del st.session_state["confirm_delete_ambiente"]
+            st.rerun()
+    modal_del_amb()
+
+if "edit_ambiente" in st.session_state:
+    @st.dialog("✏️ Editar Ambiente")
+    def modal_edit_amb():
+        amb = st.session_state["edit_ambiente"]
+        novo = st.text_input("Novo nome:", value=amb["nome"])
+        c1, c2 = st.columns(2)
+        if c1.button("Salvar", type="primary", use_container_width=True):
+            supabase.table("ambientes").update({"nome": novo.strip()}).eq("id", amb["id"]).execute()
+            st.cache_data.clear()
+            del st.session_state["edit_ambiente"]
+            st.rerun()
+        if c2.button("Sair", use_container_width=True):
+            del st.session_state["edit_ambiente"]
+            st.rerun()
+    modal_edit_amb()
+
+# 2. Modais de Material (Aba 3)
+if "confirm_delete_material" in st.session_state:
+    @st.dialog("⚠️ Excluir Material")
+    def modal_del_mat():
+        mat = st.session_state["confirm_delete_material"]
+        st.error(f"Excluir '{mat['nome']}' apagará todos os registros deste item!")
+        c1, c2 = st.columns(2)
+        if c1.button("Confirmar", type="primary", use_container_width=True):
+            supabase.table("itens_inventario").delete().eq("material_id", mat["id"]).execute()
+            supabase.table("materiais").delete().eq("id", mat["id"]).execute()
+            st.cache_data.clear()
+            del st.session_state["confirm_delete_material"]
+            st.rerun()
+        if c2.button("Voltar", use_container_width=True):
+            del st.session_state["confirm_delete_material"]
+            st.rerun()
+    modal_del_mat()
+
+if "edit_material" in st.session_state:
+    @st.dialog("✏️ Editar Material")
+    def modal_edit_mat():
+        mat = st.session_state["edit_material"]
+        novo = st.text_input("Novo nome:", value=mat["nome"])
+        c1, c2 = st.columns(2)
+        if c1.button("Salvar", type="primary", use_container_width=True):
+            supabase.table("materiais").update({"nome": novo.strip()}).eq("id", mat["id"]).execute()
+            st.cache_data.clear()
+            del st.session_state["edit_material"]
+            st.rerun()
+        if c2.button("Sair", use_container_width=True):
+            del st.session_state["edit_material"]
+            st.rerun()
+    modal_edit_mat()
