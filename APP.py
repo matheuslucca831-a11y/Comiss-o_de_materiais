@@ -874,33 +874,33 @@ with aba4:
                                     
                                     c1, c2 = st.columns(2)
                                     if c1.button("Salvar Alterações", key=f"sv_{i['id']}", use_container_width=True):
+                                        # --- LOCAL: Dentro do processamento do botão de salvar edições ---
                                         try:
-                                            with st.spinner("Atualizando banco de dados..."):
-                                                # 1. ATUALIZA O ITEM NO SUPABASE
+                                            # 1. Primeiro definimos quem está logado (ou o nome padrão)
+                                            # Se você tiver um sistema de login, use st.session_state['usuario_nome']
+                                            user_atual = st.session_state.get("usuario_nome", "Matheus Lucca") 
+                                        
+                                            with st.spinner("Atualizando dados..."):
+                                                # 2. Atualiza a tabela de itens
                                                 supabase.table("itens_inventario").update({
                                                     "patrimonio": n_pat,
-                                                    "status": n_sta,
-                                                    "observacao": n_obs
+                                                    "observacao": n_obs,
+                                                    "status": n_sta
                                                 }).eq("id", i["id"]).execute()
-                                    
-                                                # 2. GERA UM LOG NO HISTÓRICO (OPCIONAL, MAS RECOMENDADO)
-                                                usuario_logado = st.session_state.get("usuario_nome", "Usuário Desconhecido")
-                                                
-                                                detalhe_log = f"Editado: Pat {n_pat}, Status {n_sta}"
-                                                user_atual = st.session_state.get("usuario_nome", "Matheus Lucca")
-                                                
+                                        
+                                                # 3. Agora o 'user_atual' já existe e pode ser usado no histórico
                                                 supabase.table("historico_alteracoes").insert({
                                                     "item_id": i["id"],
                                                     "detalhes": f"Editado: Pat {n_pat}, Status {n_sta}",
-                                                    "usuario": st.session_state.get("usuario_nome", "Matheus Lucca")
+                                                    "usuario": user_atual # <--- Agora ele reconhece a variável!
                                                 }).execute()
-                                                                                                                                    
-                                                # 3. LIMPA O CACHE E O ESTADO PARA ATUALIZAR A TELA
+                                        
                                                 st.cache_data.clear()
-                                                st.session_state.pop("edit_item_id", None)
-                                                
-                                                st.toast("✅ Alterações salvas com sucesso!", icon="🚀")
+                                                st.success("Alterações salvas!")
                                                 st.rerun()
+                                        
+                                        except Exception as e:
+                                            st.error(f"Erro ao salvar: {e}")
                                                 
                                         except Exception as e:
                                             st.error(f"Erro ao salvar no banco: {e}")
