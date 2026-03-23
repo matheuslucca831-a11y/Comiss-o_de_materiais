@@ -840,7 +840,7 @@ with aba4:
                                     res = supabase.table("historico_alteracoes").select("*").eq("item_id", i["id"]).execute()
                                     logs = res.data
                                     if logs:
-                                        # Ordena pela coluna de data que existe na sua tabela de histórico
+                                        # Ordena pela coluna de data que existe na sua tabela
                                         logs = sorted(logs, key=lambda x: x.get('data_alteracao', ''), reverse=True)
                                         
                                         for l in logs:
@@ -848,9 +848,22 @@ with aba4:
                                             d = l.get('detalhes', 'Sem detalhes')
                                             raw_date = l.get('data_alteracao', '')
                                             
-                                            # Formatação para aparecer o ícone de relógio bonitinho
-                                            t_formated = raw_date[:16].replace('T', ' ') if raw_date else "Sem data"
+                                            # --- LÓGICA DA DATA BRASILEIRA ---
+                                            if raw_date:
+                                                try:
+                                                    # Transforma o texto do Supabase em objeto de data
+                                                    dt_utc = datetime.fromisoformat(raw_date.replace('Z', '+00:00'))
+                                                    # Subtrai 3 horas (Fuso de Brasília)
+                                                    dt_br = dt_utc - timedelta(hours=3)
+                                                    # Formata: Dia/Mês/Ano Hora:Minuto
+                                                    t_formated = dt_br.strftime("%d/%m/%Y %H:%M")
+                                                except:
+                                                    # Caso a data venha em formato estranho, mantém o corte simples
+                                                    t_formated = raw_date[:16].replace('T', ' ')
+                                            else:
+                                                t_formated = "Sem data"
                                             
+                                            # --- EXIBIÇÃO ---
                                             st.write(f"👤 **{u}**")
                                             st.caption(f"📝 {d} | ⏰ {t_formated}")
                                             st.divider()
